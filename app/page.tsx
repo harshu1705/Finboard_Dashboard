@@ -1,12 +1,14 @@
 'use client'
 
-import Header from '@/components/dashboard/Header'
 import EmptyState from '@/components/dashboard/EmptyState'
+import Header from '@/components/dashboard/Header'
 import WidgetGrid from '@/components/dashboard/WidgetGrid'
 import { useDashboardStore } from '@/lib/stores/dashboardStore'
 
 export default function Dashboard() {
   // Read widget count from store
+  // console.log(process.env.NEXT_PUBLIC_ALPHA_VANTAGE_API_KEY);
+
   const widgetCount = useDashboardStore((state) => state.widgets.length)
 
   return (
