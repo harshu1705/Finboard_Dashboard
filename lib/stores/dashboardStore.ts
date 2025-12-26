@@ -26,6 +26,9 @@ interface DashboardState {
   /** Reorder widgets by moving a widget from one index to another */
   reorderWidgets: (fromIndex: number, toIndex: number) => void
   
+  /** Import widgets from an array (replaces current widgets) */
+  importWidgets: (widgets: Widget[]) => void
+  
   /** Internal: Initialize store from persisted state (called once on mount) */
   _hydrate: () => void
 }
@@ -295,6 +298,17 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       savePersistedState(updatedWidgets)
       return { widgets: updatedWidgets }
     })
+  },
+
+  // Import widgets from an array (replaces current widgets)
+  // Validates widgets before importing and filters out invalid ones
+  importWidgets: (widgetsToImport) => {
+    // Filter and validate widgets using the existing validation function
+    const validWidgets = widgetsToImport.filter(isValidWidget)
+
+    set({ widgets: validWidgets })
+    // Persist immediately after importing
+    savePersistedState(validWidgets)
   },
 }))
 
