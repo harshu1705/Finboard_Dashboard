@@ -29,8 +29,9 @@ import { NetworkError, RateLimitError, AlphaVantageError } from '@/lib/types/api
 export default function StockPriceWidget({
   symbol,
   title,
+  refreshInterval,
 }: StockPriceWidgetProps) {
-  const { data, isLoading, error } = useStockPrice(symbol)
+  const { data, isLoading, error } = useStockPrice(symbol, refreshInterval)
 
   // Format price with 2 decimal places
   const formatPrice = (price: number): string => {

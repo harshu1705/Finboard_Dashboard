@@ -25,9 +25,13 @@ interface DashboardState {
 }
 
 /**
- * Generate a unique ID for widgets
+ * Generate a unique ID for widgets using crypto.randomUUID()
  */
 function generateWidgetId(): string {
+  // Use crypto.randomUUID() if available (browser), fallback to timestamp-based ID
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID()
+  }
   return `widget-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`
 }
 

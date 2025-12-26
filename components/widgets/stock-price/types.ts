@@ -16,6 +16,9 @@ export interface StockPriceWidgetProps {
   
   /** Optional widget title (defaults to symbol if not provided) */
   title?: string
+  
+  /** Optional refresh interval in milliseconds (default: 30000 = 30 seconds) */
+  refreshInterval?: number | null
 }
 
 /**
