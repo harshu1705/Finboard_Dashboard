@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { fetchStockQuote } from '@/lib/api/alphaVantageClient'
 import { cacheManager } from '@/lib/cache/cacheManager'
 import type { StockQuote } from '@/lib/types/api'
@@ -12,24 +12,33 @@ import {
 } from '@/lib/types/api'
 
 /**
- * Custom hook for fetching stock price data
+ * Custom hook for fetching stock price data with automatic refresh
  * 
  * Manages loading, error, and data state for stock quotes.
+ * Supports automatic polling-based refresh at configurable intervals.
  * Fully isolated - can be used by any component.
  * 
  * @param symbol - Stock symbol to fetch (e.g., "AAPL")
+ * @param refreshInterval - Refresh interval in milliseconds (default: 30000 = 30 seconds)
+ *                          Set to 0 or null to disable auto-refresh
  * @returns Stock price state with data, loading, and error
  * 
  * @example
  * ```tsx
+ * // Default 30-second refresh
  * const { data, isLoading, error } = useStockPrice('AAPL')
  * 
- * if (isLoading) return <div>Loading...</div>
- * if (error) return <div>Error: {error.message}</div>
- * if (data) return <div>{data.symbol}: ${data.price}</div>
+ * // Custom 60-second refresh
+ * const { data, isLoading, error } = useStockPrice('AAPL', 60000)
+ * 
+ * // Disable auto-refresh
+ * const { data, isLoading, error } = useStockPrice('AAPL', 0)
  * ```
  */
-export function useStockPrice(symbol: string): StockPriceState {
+export function useStockPrice(
+  symbol: string,
+  refreshInterval: number | null = 30000
+): StockPriceState {
   const [state, setState] = useState<StockPriceState>({
     data: null,
     isLoading: false,
@@ -37,6 +46,13 @@ export function useStockPrice(symbol: string): StockPriceState {
     hasFetched: false,
   })
 
+  // Track if a fetch is in progress to prevent overlapping calls
+  const isFetchingRef = useRef(false)
+  
+  // Store interval ID for cleanup
+  const intervalRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Initial fetch and setup interval
   useEffect(() => {
     // Skip if symbol is empty
     if (!symbol || symbol.trim().length === 0) {
@@ -46,42 +62,52 @@ export function useStockPrice(symbol: string): StockPriceState {
     // Normalize symbol
     const normalizedSymbol = symbol.trim().toUpperCase()
 
-    // Check cache first for instant display
-    const cacheKey = cacheManager.generateKey(
-      'alpha-vantage',
-      'stock-price',
-      normalizedSymbol
-    )
-    const cachedData = cacheManager.get<StockQuote>(cacheKey)
+    // Fetch function that can be called on demand or by interval
+    const fetchData = async (isInitialLoad: boolean = false) => {
+      // Prevent overlapping API calls
+      if (isFetchingRef.current) {
+        return
+      }
 
-    if (cachedData) {
-      // Use cached data immediately
-      setState({
-        data: cachedData,
-        isLoading: false,
-        error: null,
-        hasFetched: true,
-      })
-    } else {
-      // Set loading state only if no cache
-      setState((prev) => ({
-        ...prev,
-        isLoading: true,
-        error: null,
-      }))
-    }
+      // Check cache first for instant display (only on initial load)
+      const cacheKey = cacheManager.generateKey(
+        'alpha-vantage',
+        'stock-price',
+        normalizedSymbol
+      )
+      const cachedData = cacheManager.get<StockQuote>(cacheKey)
 
-    // Fetch fresh data (will use cache internally if available)
-    fetchStockQuote(normalizedSymbol, { useCache: true })
-      .then((quote: StockQuote) => {
+      if (isInitialLoad && cachedData) {
+        // Use cached data immediately on initial load
+        setState({
+          data: cachedData,
+          isLoading: false,
+          error: null,
+          hasFetched: true,
+        })
+      } else if (isInitialLoad && !cachedData) {
+        // Set loading state only on initial load if no cache
+        setState((prev) => ({
+          ...prev,
+          isLoading: true,
+          error: null,
+        }))
+      }
+
+      // Mark as fetching
+      isFetchingRef.current = true
+
+      try {
+        // Fetch fresh data (will use cache internally if available)
+        const quote = await fetchStockQuote(normalizedSymbol, { useCache: true })
+        
         setState({
           data: quote,
           isLoading: false,
           error: null,
           hasFetched: true,
         })
-      })
-      .catch((error: Error) => {
+      } catch (error) {
         // If we have cached data, keep it even if fetch fails
         if (cachedData) {
           setState({
@@ -91,15 +117,40 @@ export function useStockPrice(symbol: string): StockPriceState {
             hasFetched: true,
           })
         } else {
-          setState({
-            data: null,
+          setState((prev) => ({
+            ...prev,
+            data: prev.data, // Keep existing data if available
             isLoading: false,
-            error,
+            error: error as Error,
             hasFetched: true,
-          })
+          }))
         }
-      })
-  }, [symbol]) // Re-fetch when symbol changes
+      } finally {
+        // Mark as not fetching
+        isFetchingRef.current = false
+      }
+    }
+
+    // Initial fetch
+    fetchData(true)
+
+    // Set up auto-refresh interval if enabled
+    if (refreshInterval && refreshInterval > 0) {
+      intervalRef.current = setInterval(() => {
+        fetchData(false) // Background refresh, don't show loading state
+      }, refreshInterval)
+    }
+
+    // Cleanup function
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
+      // Reset fetching flag on cleanup
+      isFetchingRef.current = false
+    }
+  }, [symbol, refreshInterval]) // Re-run when symbol or interval changes
 
   return state
 }
