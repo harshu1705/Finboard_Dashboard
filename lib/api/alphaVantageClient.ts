@@ -6,6 +6,7 @@ import type {
   NetworkError,
   RateLimitError,
 } from '@/lib/types/api'
+import { cacheManager } from '@/lib/cache/cacheManager'
 
 /**
  * Alpha Vantage API Client
@@ -120,7 +121,10 @@ function normalizeQuoteResponse(
  * }
  * ```
  */
-export async function fetchStockQuote(symbol: string): Promise<StockQuote> {
+export async function fetchStockQuote(
+  symbol: string,
+  options?: { useCache?: boolean; cacheTTL?: number }
+): Promise<StockQuote> {
   // Validate configuration
   validateConfig()
 
@@ -131,6 +135,21 @@ export async function fetchStockQuote(symbol: string): Promise<StockQuote> {
 
   // Normalize symbol (uppercase, trimmed)
   const normalizedSymbol = symbol.trim().toUpperCase()
+
+  // Check cache first (default: use cache)
+  const useCache = options?.useCache !== false
+  if (useCache) {
+    const cacheKey = cacheManager.generateKey(
+      'alpha-vantage',
+      'stock-price',
+      normalizedSymbol
+    )
+    const cachedData = cacheManager.get<StockQuote>(cacheKey)
+    
+    if (cachedData) {
+      return cachedData
+    }
+  }
 
   // Build API URL
   const url = new URL(BASE_URL)
@@ -183,8 +202,21 @@ export async function fetchStockQuote(symbol: string): Promise<StockQuote> {
       )
     }
 
-    // Normalize and return data
-    return normalizeQuoteResponse(normalizedSymbol, data)
+    // Normalize data
+    const quote = normalizeQuoteResponse(normalizedSymbol, data)
+
+    // Cache the result (default: use cache)
+    if (useCache) {
+      const cacheKey = cacheManager.generateKey(
+        'alpha-vantage',
+        'stock-price',
+        normalizedSymbol
+      )
+      const cacheTTL = options?.cacheTTL ?? 5 * 60 * 1000 // 5 minutes default
+      cacheManager.set(cacheKey, quote, cacheTTL)
+    }
+
+    return quote
   } catch (error) {
     // Re-throw custom errors
     if (

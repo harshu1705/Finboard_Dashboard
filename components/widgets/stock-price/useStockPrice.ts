@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { fetchStockQuote } from '@/lib/api/alphaVantageClient'
+import { cacheManager } from '@/lib/cache/cacheManager'
 import type { StockQuote } from '@/lib/types/api'
 import type { StockPriceState } from './types'
 import {
@@ -45,15 +46,33 @@ export function useStockPrice(symbol: string): StockPriceState {
     // Normalize symbol
     const normalizedSymbol = symbol.trim().toUpperCase()
 
-    // Set loading state
-    setState((prev) => ({
-      ...prev,
-      isLoading: true,
-      error: null,
-    }))
+    // Check cache first for instant display
+    const cacheKey = cacheManager.generateKey(
+      'alpha-vantage',
+      'stock-price',
+      normalizedSymbol
+    )
+    const cachedData = cacheManager.get<StockQuote>(cacheKey)
 
-    // Fetch stock quote
-    fetchStockQuote(normalizedSymbol)
+    if (cachedData) {
+      // Use cached data immediately
+      setState({
+        data: cachedData,
+        isLoading: false,
+        error: null,
+        hasFetched: true,
+      })
+    } else {
+      // Set loading state only if no cache
+      setState((prev) => ({
+        ...prev,
+        isLoading: true,
+        error: null,
+      }))
+    }
+
+    // Fetch fresh data (will use cache internally if available)
+    fetchStockQuote(normalizedSymbol, { useCache: true })
       .then((quote: StockQuote) => {
         setState({
           data: quote,
@@ -63,12 +82,22 @@ export function useStockPrice(symbol: string): StockPriceState {
         })
       })
       .catch((error: Error) => {
-        setState({
-          data: null,
-          isLoading: false,
-          error,
-          hasFetched: true,
-        })
+        // If we have cached data, keep it even if fetch fails
+        if (cachedData) {
+          setState({
+            data: cachedData,
+            isLoading: false,
+            error: null, // Don't show error if we have cached data
+            hasFetched: true,
+          })
+        } else {
+          setState({
+            data: null,
+            isLoading: false,
+            error,
+            hasFetched: true,
+          })
+        }
       })
   }, [symbol]) // Re-fetch when symbol changes
 
