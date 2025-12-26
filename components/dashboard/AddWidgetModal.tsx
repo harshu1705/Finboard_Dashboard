@@ -32,6 +32,13 @@ export default function AddWidgetModal({ isOpen, onClose }: AddWidgetModalProps)
   const [stockSymbol, setStockSymbol] = useState('')
   const [refreshInterval, setRefreshInterval] = useState<string>('30')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  
+  // Validation state
+  const [errors, setErrors] = useState<{
+    widgetName?: string
+    stockSymbol?: string
+    refreshInterval?: string
+  }>({})
 
   // API testing state
   const [isTestingApi, setIsTestingApi] = useState(false)
@@ -57,12 +64,54 @@ export default function AddWidgetModal({ isOpen, onClose }: AddWidgetModalProps)
       setApiError(null)
       setSelectedFields([])
       setIsTestingApi(false)
+      setErrors({})
       // Focus first input when modal opens
       setTimeout(() => {
         firstFocusableRef.current?.focus()
       }, 100)
     }
   }, [isOpen])
+  
+  // Validation functions
+  const validateWidgetName = (value: string): string | undefined => {
+    if (!value.trim()) {
+      return 'Widget name is required'
+    }
+    return undefined
+  }
+  
+  const validateStockSymbol = (value: string): string | undefined => {
+    if (!value.trim()) {
+      return 'Stock symbol is required'
+    }
+    return undefined
+  }
+  
+  const validateRefreshInterval = (value: string): string | undefined => {
+    const numValue = parseInt(value, 10)
+    if (!value.trim()) {
+      return 'Refresh interval is required'
+    }
+    if (isNaN(numValue) || numValue < 5) {
+      return 'Refresh interval must be at least 5 seconds'
+    }
+    return undefined
+  }
+  
+  // Validate all fields and return if form is valid
+  const isFormValid = (): boolean => {
+    const nameError = validateWidgetName(widgetName)
+    const symbolError = validateStockSymbol(stockSymbol)
+    const intervalError = validateRefreshInterval(refreshInterval)
+    
+    setErrors({
+      widgetName: nameError,
+      stockSymbol: symbolError,
+      refreshInterval: intervalError,
+    })
+    
+    return !nameError && !symbolError && !intervalError
+  }
 
   // Focus trap implementation
   useEffect(() => {
@@ -127,12 +176,8 @@ export default function AddWidgetModal({ isOpen, onClose }: AddWidgetModalProps)
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     
-    // Validate required fields
-    if (!widgetName.trim()) {
-      return
-    }
-
-    if (!stockSymbol.trim()) {
+    // Validate all fields
+    if (!isFormValid()) {
       return
     }
 
@@ -312,14 +357,36 @@ export default function AddWidgetModal({ isOpen, onClose }: AddWidgetModalProps)
                 id="widget-name"
                 type="text"
                 value={widgetName}
-                onChange={(e) => setWidgetName(e.target.value)}
+                onChange={(e) => {
+                  setWidgetName(e.target.value)
+                  // Clear error when user starts typing
+                  if (errors.widgetName) {
+                    setErrors((prev) => ({ ...prev, widgetName: undefined }))
+                  }
+                }}
+                onBlur={() => {
+                  // Validate on blur
+                  const error = validateWidgetName(widgetName)
+                  setErrors((prev) => ({ ...prev, widgetName: error }))
+                }}
                 placeholder="e.g., Apple Stock"
-                className="w-full rounded-lg border border-gray-800 bg-gray-950 px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-gray-900"
+                className={`w-full rounded-lg border px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-gray-900 ${
+                  errors.widgetName
+                    ? 'border-red-500 bg-gray-950 focus:border-red-500'
+                    : 'border-gray-800 bg-gray-950 focus:border-accent'
+                }`}
                 required
                 autoFocus
                 disabled={isSubmitting}
                 aria-required="true"
+                aria-invalid={!!errors.widgetName}
+                aria-describedby={errors.widgetName ? 'widget-name-error' : undefined}
               />
+              {errors.widgetName && (
+                <p id="widget-name-error" className="mt-1 text-xs text-red-400">
+                  {errors.widgetName}
+                </p>
+              )}
             </div>
 
             {/* Widget Type Select */}
@@ -376,6 +443,10 @@ export default function AddWidgetModal({ isOpen, onClose }: AddWidgetModalProps)
                   onChange={(e) => {
                     const value = e.target.value.toUpperCase()
                     setStockSymbol(value)
+                    // Clear error when user starts typing
+                    if (errors.stockSymbol) {
+                      setErrors((prev) => ({ ...prev, stockSymbol: undefined }))
+                    }
                     // Clear API response when symbol changes
                     if (apiResponse || apiError) {
                       setApiResponse(null)
@@ -383,11 +454,22 @@ export default function AddWidgetModal({ isOpen, onClose }: AddWidgetModalProps)
                       setSelectedFields([])
                     }
                   }}
+                  onBlur={() => {
+                    // Validate on blur
+                    const error = validateStockSymbol(stockSymbol)
+                    setErrors((prev) => ({ ...prev, stockSymbol: error }))
+                  }}
                   placeholder="e.g., AAPL"
-                  className="flex-1 rounded-lg border border-gray-800 bg-gray-950 px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-gray-900 uppercase"
+                  className={`flex-1 rounded-lg border px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-gray-900 uppercase ${
+                    errors.stockSymbol
+                      ? 'border-red-500 bg-gray-950 focus:border-red-500'
+                      : 'border-gray-800 bg-gray-950 focus:border-accent'
+                  }`}
                   required
                   disabled={isSubmitting || isTestingApi}
                   aria-required="true"
+                  aria-invalid={!!errors.stockSymbol}
+                  aria-describedby={errors.stockSymbol ? 'stock-symbol-error' : undefined}
                   maxLength={10}
                 />
                 <button
@@ -409,14 +491,16 @@ export default function AddWidgetModal({ isOpen, onClose }: AddWidgetModalProps)
                   )}
                 </button>
               </div>
-              {!stockSymbol.trim() && (
-                <p className="mt-1 text-xs text-red-400">
-                  Stock symbol is required to test the API
+              {errors.stockSymbol && (
+                <p id="stock-symbol-error" className="mt-1 text-xs text-red-400">
+                  {errors.stockSymbol}
                 </p>
               )}
-              <p className="mt-1 text-xs text-muted-foreground">
-                Enter stock ticker symbol (e.g., AAPL, MSFT, GOOGL)
-              </p>
+              {!errors.stockSymbol && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Enter stock ticker symbol (e.g., AAPL, MSFT, GOOGL)
+                </p>
+              )}
             </div>
 
             {/* API Response Section */}
@@ -514,22 +598,47 @@ export default function AddWidgetModal({ isOpen, onClose }: AddWidgetModalProps)
                 htmlFor="refresh-interval"
                 className="mb-2 block text-sm font-medium text-foreground"
               >
-                Refresh Interval (seconds)
+                Refresh Interval (seconds) <span className="text-red-400">*</span>
               </label>
               <input
                 id="refresh-interval"
                 type="number"
                 value={refreshInterval}
-                onChange={(e) => setRefreshInterval(e.target.value)}
+                onChange={(e) => {
+                  setRefreshInterval(e.target.value)
+                  // Clear error when user starts typing
+                  if (errors.refreshInterval) {
+                    setErrors((prev) => ({ ...prev, refreshInterval: undefined }))
+                  }
+                }}
+                onBlur={() => {
+                  // Validate on blur
+                  const error = validateRefreshInterval(refreshInterval)
+                  setErrors((prev) => ({ ...prev, refreshInterval: error }))
+                }}
                 placeholder="30"
                 min="5"
                 max="3600"
-                className="w-full rounded-lg border border-gray-800 bg-gray-950 px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-gray-900"
+                className={`w-full rounded-lg border px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-gray-900 ${
+                  errors.refreshInterval
+                    ? 'border-red-500 bg-gray-950 focus:border-red-500'
+                    : 'border-gray-800 bg-gray-950 focus:border-accent'
+                }`}
                 disabled={isSubmitting}
+                aria-required="true"
+                aria-invalid={!!errors.refreshInterval}
+                aria-describedby={errors.refreshInterval ? 'refresh-interval-error' : undefined}
               />
-              <p className="mt-1 text-xs text-muted-foreground">
-                How often to refresh data (default: 30 seconds, min: 5 seconds)
-              </p>
+              {errors.refreshInterval && (
+                <p id="refresh-interval-error" className="mt-1 text-xs text-red-400">
+                  {errors.refreshInterval}
+                </p>
+              )}
+              {!errors.refreshInterval && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  How often to refresh data (default: 30 seconds, min: 5 seconds)
+                </p>
+              )}
             </div>
           </div>
 
@@ -547,7 +656,14 @@ export default function AddWidgetModal({ isOpen, onClose }: AddWidgetModalProps)
               ref={lastFocusableRef}
               type="submit"
               className="flex-1 rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-accent-foreground transition-colors hover:bg-accent/90 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isSubmitting || !widgetName.trim() || !stockSymbol.trim()}
+              disabled={
+                isSubmitting ||
+                !widgetName.trim() ||
+                !stockSymbol.trim() ||
+                !refreshInterval.trim() ||
+                parseInt(refreshInterval, 10) < 5 ||
+                isNaN(parseInt(refreshInterval, 10))
+              }
             >
               {isSubmitting ? 'Adding...' : 'Add Widget'}
             </button>
