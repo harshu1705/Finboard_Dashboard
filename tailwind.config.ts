@@ -11,10 +11,14 @@ const config: Config = {
     extend: {
       colors: {
         // Custom color palette for finance dashboard
-        // These can be extended later for brand colors
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         'muted-foreground': 'hsl(var(--muted-foreground))',
+        // Green accent color for finance dashboard
+        accent: {
+          DEFAULT: 'hsl(var(--accent))',
+          foreground: 'hsl(var(--accent-foreground))',
+        },
       },
     },
   },

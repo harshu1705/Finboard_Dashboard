@@ -7,21 +7,19 @@
   --background: 222.2 84% 4.9%;
   --foreground: 210 40% 98%;
   --muted-foreground: 215 20.2% 65.1%;
+  /* Green accent color - finance dashboard theme */
+  --accent: 142 76% 36%;
+  --accent-foreground: 0 0% 100%;
 }
 
 /* Minimal CSS Reset - only what's necessary */
 html {
-  @apply dark; /* Force dark mode as default */
+  scroll-behavior: smooth;
 }
 
 body {
   @apply bg-background text-foreground;
   font-feature-settings: "rlig" 1, "calt" 1;
-}
-
-/* Smooth scrolling for better UX */
-html {
-  scroll-behavior: smooth;
 }
 
 /* Remove default margins and ensure consistent box-sizing */

@@ -1,15 +1,25 @@
-export default function Home() {
+import Header from '@/components/dashboard/Header'
+import EmptyState from '@/components/dashboard/EmptyState'
+
+export default function Dashboard() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-8">
-      <div className="z-10 max-w-5xl w-full items-center justify-center font-mono text-sm">
-        <h1 className="text-4xl font-bold text-center mb-4">
-          Finance Dashboard
-        </h1>
-        <p className="text-center text-muted-foreground opacity-70">
-          Production-ready dashboard initialized successfully
-        </p>
-      </div>
-    </main>
+    <div className="flex min-h-screen flex-col">
+      {/* Header */}
+      <Header />
+
+      {/* Main Dashboard Area */}
+      <main className="flex-1">
+        {/* Responsive Grid Container - ready for widgets */}
+        <div className="container mx-auto px-4 py-8 sm:px-6 lg:px-8">
+          {/* Grid Layout - will hold widgets when added */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {/* Empty State - shown when no widgets exist */}
+            <div className="col-span-full">
+              <EmptyState />
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
   )
 }
-
