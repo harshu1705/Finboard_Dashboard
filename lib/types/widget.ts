@@ -6,11 +6,28 @@
  */
 
 export type WidgetType = 
+  | 'price-card'
+  | 'table'
+  | 'chart'
   | 'stock-price'
   | 'portfolio-summary'
   | 'market-news'
   | 'price-chart'
   | 'custom'
+
+/**
+ * User-friendly display names for widget types
+ */
+export const WIDGET_TYPE_LABELS: Record<WidgetType, string> = {
+  'price-card': 'Price Card',
+  'table': 'Table',
+  'chart': 'Chart',
+  'stock-price': 'Stock Price',
+  'portfolio-summary': 'Portfolio Summary',
+  'market-news': 'Market News',
+  'price-chart': 'Price Chart',
+  'custom': 'Custom',
+}
 
 export interface Widget {
   /** Unique identifier for the widget */
