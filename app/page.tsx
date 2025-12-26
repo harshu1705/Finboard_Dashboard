@@ -4,12 +4,21 @@ import EmptyState from '@/components/dashboard/EmptyState'
 import Header from '@/components/dashboard/Header'
 import WidgetGrid from '@/components/dashboard/WidgetGrid'
 import { useDashboardStore } from '@/lib/stores/dashboardStore'
+import { useEffect } from 'react'
 
 export default function Dashboard() {
   // Read widget count from store
   // console.log(process.env.NEXT_PUBLIC_ALPHA_VANTAGE_API_KEY);
 
   const widgetCount = useDashboardStore((state) => state.widgets.length)
+  const hydrate = useDashboardStore((state) => state._hydrate)
+
+  // Hydrate store from localStorage on client-side mount
+  // This runs only once after the component mounts on the client,
+  // avoiding hydration mismatches with Next.js SSR
+  useEffect(() => {
+    hydrate()
+  }, [hydrate])
 
   return (
     <div className="flex min-h-screen flex-col">
