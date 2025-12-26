@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo, memo } from 'react'
 import { Clock, TrendingUp, AlertCircle } from 'lucide-react'
 import { useStockPrice } from './useStockPrice'
 import type { StockPriceWidgetProps } from './types'
@@ -26,27 +27,38 @@ import { NetworkError, RateLimitError, AlphaVantageError } from '@/lib/types/api
  * <StockPriceWidget symbol="MSFT" title="Microsoft Stock" />
  * ```
  */
-export default function StockPriceWidget({
+function StockPriceWidget({
   symbol,
   title,
   refreshInterval,
 }: StockPriceWidgetProps) {
   const { data, isLoading, error } = useStockPrice(symbol, refreshInterval)
 
+  // Memoize price formatter to avoid recreating Intl.NumberFormat on every render
+  // This is a pure function with no dependencies, so it only needs to be created once
+  const priceFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }),
+    []
+  )
+
   // Format price with 2 decimal places
   const formatPrice = (price: number): string => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(price)
+    return priceFormatter.format(price)
   }
 
-  // Format last updated time
-  const formatLastUpdated = (timestamp: string): string => {
+  // Memoize formatted last updated time to avoid recalculating on every render
+  // Only recalculates when data.lastUpdated changes
+  const formattedLastUpdated = useMemo(() => {
+    if (!data?.lastUpdated) return 'Unknown'
+    
     try {
-      const date = new Date(timestamp)
+      const date = new Date(data.lastUpdated)
       const now = new Date()
       const diffMs = now.getTime() - date.getTime()
       const diffMins = Math.floor(diffMs / 60000)
@@ -63,52 +75,67 @@ export default function StockPriceWidget({
     } catch {
       return 'Unknown'
     }
-  }
+  }, [data?.lastUpdated])
 
-  // Get error message based on error type
+  // Get user-friendly error message based on error type
   const getErrorMessage = (error: Error): string => {
     if (error instanceof RateLimitError) {
-      return 'Rate limit exceeded. Please try again later.'
+      return 'API limit reached. Please try again in a few minutes.'
     }
     if (error instanceof NetworkError) {
-      return 'Network error. Please check your connection.'
+      return 'Network error. Please check your internet connection.'
     }
     if (error instanceof AlphaVantageError) {
-      return error.message || 'Failed to fetch stock data.'
+      // Check for common API error messages
+      const message = error.message.toLowerCase()
+      if (message.includes('rate limit') || message.includes('call frequency')) {
+        return 'API limit reached. Please try again later.'
+      }
+      if (message.includes('invalid') || message.includes('not found')) {
+        return 'Stock symbol not found. Please check the symbol and try again.'
+      }
+      return 'Unable to fetch stock data. Please try again later.'
     }
-    return error.message || 'An error occurred.'
+    // Generic error fallback
+    return 'Unable to load data. Please try again later.'
   }
 
-  // Loading state
+  // Loading state with improved skeleton
   if (isLoading) {
     return (
       <div className="rounded-lg border border-gray-800 bg-gray-900/50 p-6">
         <div className="flex items-center justify-between">
-          <div className="flex-1">
-            <div className="mb-2 h-5 w-24 animate-pulse rounded bg-gray-800" />
-            <div className="h-8 w-32 animate-pulse rounded bg-gray-800" />
+          <div className="flex-1 space-y-2">
+            {/* Title skeleton */}
+            <div className="h-4 w-24 animate-pulse rounded bg-gray-800/60" />
+            {/* Price skeleton */}
+            <div className="h-8 w-32 animate-pulse rounded bg-gray-800/60" />
           </div>
-          <div className="h-8 w-8 animate-pulse rounded-full bg-gray-800" />
+          {/* Icon skeleton */}
+          <div className="h-10 w-10 animate-pulse rounded-full bg-gray-800/60" />
         </div>
-        <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
-          <Clock className="h-3 w-3" />
-          <div className="h-3 w-20 animate-pulse rounded bg-gray-800" />
+        {/* Footer skeleton */}
+        <div className="mt-4 flex items-center gap-2">
+          <div className="h-3 w-3 animate-pulse rounded bg-gray-800/60" />
+          <div className="h-3 w-24 animate-pulse rounded bg-gray-800/60" />
         </div>
       </div>
     )
   }
 
-  // Error state
+  // Error state with improved UI
   if (error) {
     return (
       <div className="rounded-lg border border-red-900/50 bg-red-950/20 p-6">
         <div className="flex items-start gap-3">
-          <AlertCircle className="h-5 w-5 shrink-0 text-red-500" />
-          <div className="flex-1">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-900/20">
+            <AlertCircle className="h-5 w-5 text-red-400" />
+          </div>
+          <div className="flex-1 min-w-0">
             <h3 className="mb-1 text-sm font-semibold text-red-400">
               {title || symbol.toUpperCase()}
             </h3>
-            <p className="text-xs text-red-300/80">
+            <p className="text-xs text-red-300/80 leading-relaxed">
               {getErrorMessage(error)}
             </p>
           </div>
@@ -117,11 +144,23 @@ export default function StockPriceWidget({
     )
   }
 
-  // Data state
+  // No data state with improved UI
   if (!data) {
     return (
       <div className="rounded-lg border border-gray-800 bg-gray-900/50 p-6">
-        <p className="text-sm text-muted-foreground">No data available</p>
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-800/50">
+            <AlertCircle className="h-5 w-5 text-muted-foreground" />
+          </div>
+          <div className="flex-1">
+            <h3 className="text-sm font-medium text-foreground">
+              {title || symbol.toUpperCase()}
+            </h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              No data available
+            </p>
+          </div>
+        </div>
       </div>
     )
   }
@@ -147,9 +186,20 @@ export default function StockPriceWidget({
       {/* Footer */}
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <Clock className="h-3 w-3" />
-        <span>Updated {formatLastUpdated(data.lastUpdated)}</span>
+        <span>Updated {formattedLastUpdated}</span>
       </div>
     </div>
   )
 }
+
+// Memoize widget to prevent re-renders when parent re-renders but props haven't changed
+// Each widget fetches independently via useStockPrice hook, so this only optimizes rendering
+// Props comparison ensures widget only re-renders when symbol, title, or refreshInterval changes
+export default memo(StockPriceWidget, (prevProps, nextProps) => {
+  return (
+    prevProps.symbol === nextProps.symbol &&
+    prevProps.title === nextProps.title &&
+    prevProps.refreshInterval === nextProps.refreshInterval
+  )
+})
 
