@@ -23,6 +23,9 @@ interface DashboardState {
   /** Clear all widgets */
   clearWidgets: () => void
   
+  /** Reorder widgets by moving a widget from one index to another */
+  reorderWidgets: (fromIndex: number, toIndex: number) => void
+  
   /** Internal: Initialize store from persisted state (called once on mount) */
   _hydrate: () => void
 }
@@ -267,6 +270,31 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     set({ widgets: [] })
     // Persist immediately after clearing
     savePersistedState([])
+  },
+
+  // Reorder widgets by moving a widget from one index to another
+  reorderWidgets: (fromIndex, toIndex) => {
+    set((state) => {
+      // Validate indices
+      if (
+        fromIndex < 0 ||
+        fromIndex >= state.widgets.length ||
+        toIndex < 0 ||
+        toIndex >= state.widgets.length ||
+        fromIndex === toIndex
+      ) {
+        return state // No change needed
+      }
+
+      // Create a new array with reordered widgets
+      const updatedWidgets = [...state.widgets]
+      const [movedWidget] = updatedWidgets.splice(fromIndex, 1)
+      updatedWidgets.splice(toIndex, 0, movedWidget)
+
+      // Persist immediately after reordering
+      savePersistedState(updatedWidgets)
+      return { widgets: updatedWidgets }
+    })
   },
 }))
 
