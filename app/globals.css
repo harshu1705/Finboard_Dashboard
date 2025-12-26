@@ -14,12 +14,17 @@
 
 /* Minimal CSS Reset - only what's necessary */
 html {
-  scroll-behavior: smooth;
+  @apply dark; /* Force dark mode as default */
 }
 
 body {
   @apply bg-background text-foreground;
   font-feature-settings: "rlig" 1, "calt" 1;
+}
+
+/* Smooth scrolling for better UX */
+html {
+  scroll-behavior: smooth;
 }
 
 /* Remove default margins and ensure consistent box-sizing */
