@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, memo } from 'react'
-import { Clock, TrendingUp, AlertCircle } from 'lucide-react'
+import { Clock, TrendingUp, AlertCircle, X } from 'lucide-react'
 import { useStockPrice } from './useStockPrice'
 import type { StockPriceWidgetProps } from './types'
 import { NetworkError, RateLimitError, AlphaVantageError } from '@/lib/types/api'
@@ -31,6 +31,7 @@ function StockPriceWidget({
   symbol,
   title,
   refreshInterval,
+  onRemove,
 }: StockPriceWidgetProps) {
   const { data, isLoading, error } = useStockPrice(symbol, refreshInterval)
 
@@ -103,7 +104,17 @@ function StockPriceWidget({
   // Loading state with improved skeleton
   if (isLoading) {
     return (
-      <div className="rounded-lg border border-gray-800 bg-gray-900/50 p-6">
+      <div className="group relative rounded-lg border border-gray-800 bg-gray-900/50 p-6">
+        {onRemove && (
+          <button
+            type="button"
+            onClick={onRemove}
+            className="absolute right-2 top-2 z-10 rounded-md p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-red-900/20 hover:text-red-400 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900 group-hover:opacity-100"
+            aria-label={`Remove ${title || symbol} widget`}
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+        )}
         <div className="flex items-center justify-between">
           <div className="flex-1 space-y-2">
             {/* Title skeleton */}
@@ -126,7 +137,17 @@ function StockPriceWidget({
   // Error state with improved UI
   if (error) {
     return (
-      <div className="rounded-lg border border-red-900/50 bg-red-950/20 p-6">
+      <div className="group relative rounded-lg border border-red-900/50 bg-red-950/20 p-6">
+        {onRemove && (
+          <button
+            type="button"
+            onClick={onRemove}
+            className="absolute right-2 top-2 z-10 rounded-md p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-red-900/20 hover:text-red-400 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900 group-hover:opacity-100"
+            aria-label={`Remove ${title || symbol} widget`}
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+        )}
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-900/20">
             <AlertCircle className="h-5 w-5 text-red-400" />
@@ -147,7 +168,17 @@ function StockPriceWidget({
   // No data state with improved UI
   if (!data) {
     return (
-      <div className="rounded-lg border border-gray-800 bg-gray-900/50 p-6">
+      <div className="group relative rounded-lg border border-gray-800 bg-gray-900/50 p-6">
+        {onRemove && (
+          <button
+            type="button"
+            onClick={onRemove}
+            className="absolute right-2 top-2 z-10 rounded-md p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-red-900/20 hover:text-red-400 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900 group-hover:opacity-100"
+            aria-label={`Remove ${title || symbol} widget`}
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+        )}
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-800/50">
             <AlertCircle className="h-5 w-5 text-muted-foreground" />
@@ -167,7 +198,18 @@ function StockPriceWidget({
 
   // Success state - display stock price
   return (
-    <div className="rounded-lg border border-gray-800 bg-gray-900/50 p-6 transition-colors hover:border-gray-700">
+    <div className="group relative rounded-lg border border-gray-800 bg-gray-900/50 p-6 transition-colors hover:border-gray-700">
+      {/* Delete button - top-right corner, visible on hover */}
+      {onRemove && (
+        <button
+          type="button"
+          onClick={onRemove}
+          className="absolute right-2 top-2 z-10 rounded-md p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-red-900/20 hover:text-red-400 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900 group-hover:opacity-100"
+          aria-label={`Remove ${title || symbol} widget`}
+        >
+          <X className="h-4 w-4" aria-hidden="true" />
+        </button>
+      )}
       {/* Header */}
       <div className="mb-4 flex items-center justify-between">
         <div>
@@ -194,12 +236,14 @@ function StockPriceWidget({
 
 // Memoize widget to prevent re-renders when parent re-renders but props haven't changed
 // Each widget fetches independently via useStockPrice hook, so this only optimizes rendering
-// Props comparison ensures widget only re-renders when symbol, title, or refreshInterval changes
+// Props comparison ensures widget only re-renders when symbol, title, refreshInterval, or onRemove changes
+// Note: onRemove function reference should be stable (memoized in parent) to avoid unnecessary re-renders
 export default memo(StockPriceWidget, (prevProps, nextProps) => {
   return (
     prevProps.symbol === nextProps.symbol &&
     prevProps.title === nextProps.title &&
-    prevProps.refreshInterval === nextProps.refreshInterval
+    prevProps.refreshInterval === nextProps.refreshInterval &&
+    prevProps.onRemove === nextProps.onRemove
   )
 })
 

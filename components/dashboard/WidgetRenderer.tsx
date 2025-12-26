@@ -1,9 +1,11 @@
 'use client'
 
-import { memo } from 'react'
+import { memo, useCallback } from 'react'
+import { X } from 'lucide-react'
 import type { Widget } from '@/lib/types/widget'
 import StockPriceWidget from '@/components/widgets/stock-price/StockPriceWidget'
 import { WidgetErrorBoundary } from '@/components/widgets/WidgetErrorBoundary'
+import { useDashboardStore } from '@/lib/stores/dashboardStore'
 
 /**
  * Widget Renderer Component
@@ -25,7 +27,16 @@ import { WidgetErrorBoundary } from '@/components/widgets/WidgetErrorBoundary'
  */
 function WidgetRenderer({ widget }: { widget: Widget }) {
   // Extract common configuration
-  const { type, title, config } = widget
+  const { type, title, config, id } = widget
+  
+  // Get remove function from store (Zustand selectors return stable references)
+  const removeWidget = useDashboardStore((state) => state.removeWidget)
+  
+  // Memoize remove handler to prevent unnecessary re-renders of memoized widget
+  // This ensures the onRemove prop reference stays stable unless widget ID changes
+  const handleRemove = useCallback(() => {
+    removeWidget(id)
+  }, [id, removeWidget])
 
   // Render widget based on type
   switch (type) {
@@ -45,7 +56,16 @@ function WidgetRenderer({ widget }: { widget: Widget }) {
         // Wrap in error boundary for consistency
         return (
           <WidgetErrorBoundary widgetTitle={title || 'Unconfigured Widget'}>
-            <div className="rounded-lg border border-gray-800 bg-gray-900/50 p-6">
+            <div className="group relative rounded-lg border border-gray-800 bg-gray-900/50 p-6">
+              {/* Delete button - top-right corner */}
+              <button
+                type="button"
+                onClick={handleRemove}
+                className="absolute right-2 top-2 z-10 rounded-md p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-red-900/20 hover:text-red-400 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900 group-hover:opacity-100"
+                aria-label={`Remove ${title || 'widget'}`}
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
               <div className="flex items-start gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/10">
                   <span className="text-accent">⚙️</span>
@@ -71,6 +91,7 @@ function WidgetRenderer({ widget }: { widget: Widget }) {
             symbol={symbol} 
             title={title}
             refreshInterval={refreshInterval}
+            onRemove={handleRemove}
           />
         </WidgetErrorBoundary>
       )
@@ -87,7 +108,16 @@ function WidgetRenderer({ widget }: { widget: Widget }) {
       // Wrap in error boundary for consistency
       return (
         <WidgetErrorBoundary widgetTitle={title || 'Unknown Widget'}>
-          <div className="rounded-lg border border-gray-800 bg-gray-900/50 p-6">
+          <div className="group relative rounded-lg border border-gray-800 bg-gray-900/50 p-6">
+            {/* Delete button - top-right corner */}
+            <button
+              type="button"
+              onClick={handleRemove}
+              className="absolute right-2 top-2 z-10 rounded-md p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-red-900/20 hover:text-red-400 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900 group-hover:opacity-100"
+              aria-label={`Remove ${title || 'widget'}`}
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-800">
                 <span className="text-lg">?</span>

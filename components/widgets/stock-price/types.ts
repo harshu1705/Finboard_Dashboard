@@ -19,6 +19,9 @@ export interface StockPriceWidgetProps {
   
   /** Optional refresh interval in milliseconds (default: 30000 = 30 seconds) */
   refreshInterval?: number | null
+  
+  /** Optional callback function to handle widget removal */
+  onRemove?: () => void
 }
 
 /**
