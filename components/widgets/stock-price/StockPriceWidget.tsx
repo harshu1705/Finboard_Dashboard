@@ -1,7 +1,7 @@
 'use client'
 
-import { useMemo, memo, useCallback, useEffect } from 'react'
-import { Clock, TrendingUp, AlertCircle, X } from 'lucide-react'
+import { useMemo, memo, useCallback, useEffect, useState, type JSX } from 'react'
+import { Clock, TrendingUp, AlertCircle, X, Pencil } from 'lucide-react'
 import { useStockPrice } from './useStockPrice'
 import type { StockPriceWidgetProps } from './types'
 import { NetworkError, RateLimitError } from '@/lib/api/providers/types'
@@ -9,6 +9,10 @@ import { FieldSelectionPanel } from '@/components/widgets/FieldSelectionPanel'
 import { useDashboardStore } from '@/lib/stores/dashboardStore'
 import { getNestedValue, formatFieldLabel, extractFields } from '@/lib/utils/fieldExtraction'
 import { normalizeApiResponse, getNormalizedField, type NormalizedResponse } from '@/lib/utils/responseNormalizer'
+import { getProviderLabel } from '@/lib/utils/providerUtils'
+import { formatValue, getDefaultFormatType } from '@/lib/utils/valueFormatter'
+import type { FormatType } from '@/lib/utils/valueFormatter'
+import EditWidgetModal from '@/components/dashboard/EditWidgetModal'
 
 /**
  * Stock Price Widget Component
@@ -38,13 +42,29 @@ function StockPriceWidget({
   onRemove,
   widgetId,
 }: StockPriceWidgetProps) {
-  const { data, isLoading, error, rawResponse } = useStockPrice(symbol, refreshInterval)
-  
   // Get widget config and update function from store
   const widget = useDashboardStore((state) => 
     widgetId ? state.getWidget(widgetId) : undefined
   )
   const updateWidget = useDashboardStore((state) => state.updateWidget)
+  
+  // Edit modal state
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  
+  // Get provider from config with default fallback
+  const provider = useMemo(() => {
+    try {
+      const configProvider = widget?.config?.provider
+      if (configProvider === 'alpha-vantage' || configProvider === 'finnhub') {
+        return configProvider
+      }
+      return 'alpha-vantage' // Default provider
+    } catch {
+      return 'alpha-vantage' // Safe default
+    }
+  }, [widget?.config])
+  
+  const { data, isLoading, error, rawResponse, provider: actualProvider, usedFallback } = useStockPrice(symbol, refreshInterval, provider)
   
   // Get selected fields from config with safe defaults
   // Always returns a non-empty array with at least ['price']
@@ -154,6 +174,18 @@ function StockPriceWidget({
     })
   }, [widgetId, widget?.config, updateWidget])
 
+  // Handle field format preferences change
+  const handleFieldFormatsChange = useCallback((formats: Record<string, FormatType>) => {
+    if (!widgetId) return
+    
+    updateWidget(widgetId, {
+      config: {
+        ...widget?.config,
+        fieldFormats: formats,
+      },
+    })
+  }, [widgetId, widget?.config, updateWidget])
+
   // Memoize price formatter to avoid recreating Intl.NumberFormat on every render
   // This is a pure function with no dependencies, so it only needs to be created once
   const priceFormatter = useMemo(
@@ -225,9 +257,22 @@ function StockPriceWidget({
     }
   }, [rawResponse, data])
 
+  // Get field format preferences from config
+  const fieldFormats = useMemo(() => {
+    try {
+      const formats = widget?.config?.fieldFormats
+      if (formats && typeof formats === 'object' && !Array.isArray(formats)) {
+        return formats as Record<string, FormatType>
+      }
+      return {}
+    } catch {
+      return {}
+    }
+  }, [widget?.config])
+
   // Render selected fields with defensive checks
   // MUST be called before any early returns (Rules of Hooks)
-  const renderSelectedFields = useMemo(() => {
+  const renderSelectedFields = useMemo<JSX.Element>(() => {
     try {
       // Ensure we have at least one field (should always be price due to safe defaults)
       if (!selectedFields || selectedFields.length === 0) {
@@ -236,11 +281,12 @@ function StockPriceWidget({
           console.warn('[StockPriceWidget] No fields selected, using default price')
         }
         if (normalizedResponse.price !== undefined) {
+          const priceFormat = fieldFormats['price'] || 'currency'
           return (
             <div>
               <div className="text-xs text-muted-foreground mb-1">Price</div>
               <div className="text-2xl font-bold text-foreground">
-                {formatPrice(normalizedResponse.price)}
+                {formatValue(normalizedResponse.price, priceFormat)}
               </div>
             </div>
           )
@@ -314,12 +360,13 @@ function StockPriceWidget({
       if (availableFields.length === 0) {
         // Always try to show price as last resort
         if (normalizedResponse.price !== undefined) {
+          const priceFormat = fieldFormats['price'] || 'currency'
           return (
             <div className="space-y-3">
               <div>
                 <div className="text-xs text-muted-foreground mb-1">Price (fallback)</div>
                 <div className="text-2xl font-bold text-foreground">
-                  {formatPrice(normalizedResponse.price)}
+                  {formatValue(normalizedResponse.price, priceFormat)}
                 </div>
               </div>
               {unavailableFields.length > 0 && (
@@ -346,30 +393,13 @@ function StockPriceWidget({
       return (
         <div className="space-y-3">
           {availableFields.map(({ field, value, label }) => {
-            // Format values safely
+            // Get format type for this field (from config or default)
+            const formatType = fieldFormats[field] || getDefaultFormatType(field)
+            
+            // Format value using the formatter utility
             let displayValue: string
             try {
-              if (typeof value === 'number') {
-                const fieldLower = field.toLowerCase()
-                // Format as currency for price-related fields
-                if (
-                  value > 0 && 
-                  value < 1000000 && 
-                  (fieldLower.includes('price') || 
-                   fieldLower.includes('open') || 
-                   fieldLower.includes('high') || 
-                   fieldLower.includes('low') || 
-                   fieldLower.includes('close'))
-                ) {
-                  displayValue = formatPrice(value)
-                } else {
-                  displayValue = value.toLocaleString()
-                }
-              } else if (value instanceof Date) {
-                displayValue = value.toLocaleString()
-              } else {
-                displayValue = String(value)
-              }
+              displayValue = formatValue(value, formatType)
             } catch (error) {
               // Defensive fallback
               if (process.env.NODE_ENV === 'development') {
@@ -407,11 +437,12 @@ function StockPriceWidget({
       
       // Always show price if available
       if (normalizedResponse.price !== undefined) {
+        const priceFormat = fieldFormats['price'] || 'currency'
         return (
           <div>
             <div className="text-xs text-muted-foreground mb-1">Price</div>
             <div className="text-2xl font-bold text-foreground">
-              {formatPrice(normalizedResponse.price)}
+              {formatValue(normalizedResponse.price, priceFormat)}
             </div>
           </div>
         )
@@ -425,7 +456,7 @@ function StockPriceWidget({
         </div>
       )
     }
-  }, [normalizedResponse, selectedFields, rawResponse, formatPrice])
+  }, [normalizedResponse, selectedFields, rawResponse, fieldFormats])
 
   // Get user-friendly error message based on error type
   const getErrorMessage = (error: Error): string => {
@@ -502,14 +533,39 @@ function StockPriceWidget({
             <AlertCircle className="h-5 w-5 text-red-400" />
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="mb-1 text-sm font-semibold text-red-400">
-              {title || symbol.toUpperCase()}
-            </h3>
+            <div className="flex items-center gap-2 group/title">
+              <h3 className="mb-1 text-sm font-semibold text-red-400">
+                {title || symbol.toUpperCase()}
+              </h3>
+              {widget && (
+                <button
+                  type="button"
+                  onClick={() => setIsEditModalOpen(true)}
+                  className="rounded-md p-1 text-red-400 opacity-0 transition-opacity hover:bg-red-900/20 hover:text-red-300 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900 group-hover/title:opacity-100"
+                  aria-label={`Edit ${title || symbol} widget`}
+                >
+                  <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
+              )}
+            </div>
+            {widget?.description && (
+              <p className="mb-1 text-xs text-red-300/60">
+                {widget.description}
+              </p>
+            )}
             <p className="text-xs text-red-300/80 leading-relaxed">
               {getErrorMessage(error)}
             </p>
           </div>
         </div>
+        {/* Edit Widget Modal */}
+        {widget && (
+          <EditWidgetModal
+            isOpen={isEditModalOpen}
+            widget={widget}
+            onClose={() => setIsEditModalOpen(false)}
+          />
+        )}
       </div>
     )
   }
@@ -533,14 +589,39 @@ function StockPriceWidget({
             <AlertCircle className="h-5 w-5 text-muted-foreground" />
           </div>
           <div className="flex-1">
-            <h3 className="text-sm font-medium text-foreground">
-              {title || symbol.toUpperCase()}
-            </h3>
+            <div className="flex items-center gap-2 group/title">
+              <h3 className="text-sm font-medium text-foreground">
+                {title || symbol.toUpperCase()}
+              </h3>
+              {widget && (
+                <button
+                  type="button"
+                  onClick={() => setIsEditModalOpen(true)}
+                  className="rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-gray-800 hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-gray-900 group-hover/title:opacity-100"
+                  aria-label={`Edit ${title || symbol} widget`}
+                >
+                  <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
+              )}
+            </div>
+            {widget?.description && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {widget.description}
+              </p>
+            )}
             <p className="mt-1 text-xs text-muted-foreground">
               No data available
             </p>
           </div>
         </div>
+        {/* Edit Widget Modal */}
+        {widget && (
+          <EditWidgetModal
+            isOpen={isEditModalOpen}
+            widget={widget}
+            onClose={() => setIsEditModalOpen(false)}
+          />
+        )}
       </div>
     )
   }
@@ -560,12 +641,28 @@ function StockPriceWidget({
           <X className="h-4 w-4" aria-hidden="true" />
         </button>
       )}
-      {/* Header */}
       <div className="mb-4 flex items-center justify-between">
         <div className="flex-1">
-          <h3 className="text-sm font-medium text-muted-foreground">
-            {title || data.symbol}
-          </h3>
+          <div className="flex items-center gap-2 group/title">
+            <h3 className="text-sm font-medium text-muted-foreground">
+              {title || data.symbol}
+            </h3>
+            {widget && (
+              <button
+                type="button"
+                onClick={() => setIsEditModalOpen(true)}
+                className="rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-gray-800 hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-gray-900 group-hover/title:opacity-100"
+                aria-label={`Edit ${title || data.symbol} widget`}
+              >
+                <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+              </button>
+            )}
+          </div>
+          {widget?.description && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {widget.description}
+            </p>
+          )}
           {/* Render selected fields */}
           <div className="mt-2">
             {renderSelectedFields}
@@ -582,6 +679,8 @@ function StockPriceWidget({
           rawResponse={rawResponse}
           selectedFields={selectedFields}
           onFieldsChange={handleFieldsChange}
+          fieldFormats={fieldFormats}
+          onFieldFormatsChange={handleFieldFormatsChange}
           widgetId={widgetId}
         />
       )}
@@ -592,17 +691,30 @@ function StockPriceWidget({
           <Clock className="h-3 w-3" />
           <span>Updated {formattedLastUpdated}</span>
         </div>
-        {/* Provider badge - subtle indicator of which API was used */}
-        {data.provider && (
-          <span className="rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide bg-gray-800/50 text-muted-foreground">
-            {data.provider === 'alpha-vantage'
-              ? 'AV'
-              : data.provider === 'finnhub'
-              ? 'FH'
-              : data.provider}
-          </span>
+        {/* Provider badge - shows data source and fallback status */}
+        {actualProvider && (
+          <div className="flex flex-col items-end gap-1">
+            <span
+              className={`rounded px-2 py-0.5 text-[10px] font-medium ${
+                usedFallback
+                  ? 'bg-yellow-950/30 text-yellow-400 border border-yellow-900/50'
+                  : 'bg-accent/10 text-accent border border-accent/20'
+              }`}
+            >
+              {getProviderLabel(actualProvider, usedFallback, provider)}
+            </span>
+          </div>
         )}
       </div>
+      
+      {/* Edit Widget Modal */}
+      {widget && (
+        <EditWidgetModal
+          isOpen={isEditModalOpen}
+          widget={widget}
+          onClose={() => setIsEditModalOpen(false)}
+        />
+      )}
     </div>
   )
 }

@@ -2,9 +2,11 @@
 
 import { useDashboardStore } from '@/lib/stores/dashboardStore'
 import type { CreateWidgetPayload, WidgetType } from '@/lib/types/widget'
+import type { ProviderName } from '@/lib/api/providers/fallback'
 import { AlertCircle, CheckCircle2, Play, X } from 'lucide-react'
 import { FormEvent, useEffect, useRef, useState } from 'react'
 import JsonViewer from './JsonViewer'
+import { fetchStockDataRaw } from '@/lib/api/providers/rawResponseFetcher'
 
 interface AddWidgetModalProps {
   isOpen: boolean
@@ -196,7 +198,9 @@ export default function AddWidgetModal({ isOpen, onClose }: AddWidgetModalProps)
       config: {
         symbol: stockSymbol.trim().toUpperCase(),
         refreshInterval: validRefreshInterval,
-        provider: 'alpha-vantage',
+        provider: (apiProvider as ProviderName) || 'alpha-vantage',
+        selectedFields: selectedFields.length > 0 ? selectedFields : [],
+        // Keep fields for backward compatibility
         fields: selectedFields.length > 0 ? selectedFields : [],
       },
     }
@@ -239,49 +243,13 @@ export default function AddWidgetModal({ isOpen, onClose }: AddWidgetModalProps)
     setApiResponse(null)
 
     try {
-      const apiKey = process.env.NEXT_PUBLIC_ALPHA_VANTAGE_API_KEY
-      if (!apiKey) {
-        throw new Error('API key is missing. Please set NEXT_PUBLIC_ALPHA_VANTAGE_API_KEY')
-      }
-
-      const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${apiKey}`
+      // Use the selected provider to test API
+      const selectedProvider = (apiProvider as ProviderName) || 'alpha-vantage'
       
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        cache: 'no-store',
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      const data = await response.json()
-
-      // Check for API errors
-      if (data['Error Message']) {
-        throw new Error(data['Error Message'])
-      }
-
-      if (data.Note) {
-        const note = data.Note.toLowerCase()
-        if (note.includes('call frequency') || note.includes('rate limit')) {
-          throw new Error('API rate limit exceeded. Please try again later.')
-        }
-        throw new Error(data.Note)
-      }
-
-      if (data.Information) {
-        const info = data.Information.toLowerCase()
-        if (info.includes('call frequency')) {
-          throw new Error('API rate limit exceeded. Please try again later.')
-        }
-      }
-
-      // Success - set response
-      setApiResponse(data)
+      // Fetch raw response from the selected provider
+      const rawResponse = await fetchStockDataRaw(selectedProvider, symbol)
+      
+      setApiResponse(rawResponse)
       setApiError(null)
     } catch (error) {
       const errorMessage = error instanceof Error 
@@ -424,7 +392,11 @@ export default function AddWidgetModal({ isOpen, onClose }: AddWidgetModalProps)
                 disabled={isSubmitting || isTestingApi}
               >
                 <option value="alpha-vantage">Alpha Vantage</option>
+                <option value="finnhub">Finnhub</option>
               </select>
+              <p className="mt-1 text-xs text-muted-foreground">
+                If the selected provider fails, the system will automatically fallback to the alternate provider.
+              </p>
             </div>
 
             {/* Stock Symbol Input */}

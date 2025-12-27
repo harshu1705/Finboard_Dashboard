@@ -39,6 +39,9 @@ export interface Widget {
   /** Widget title/name */
   title: string
   
+  /** Optional widget description/subtitle */
+  description?: string
+  
   /** Widget configuration (provider-specific) */
   config: Record<string, unknown>
   

@@ -1,11 +1,12 @@
 'use client'
 
-import { memo, useCallback } from 'react'
-import { X } from 'lucide-react'
+import { memo, useCallback, useState } from 'react'
+import { X, Pencil } from 'lucide-react'
 import type { Widget } from '@/lib/types/widget'
 import StockPriceWidget from '@/components/widgets/stock-price/StockPriceWidget'
 import { WidgetErrorBoundary } from '@/components/widgets/WidgetErrorBoundary'
 import { useDashboardStore } from '@/lib/stores/dashboardStore'
+import EditWidgetModal from './EditWidgetModal'
 
 /**
  * Widget Renderer Component
@@ -31,6 +32,9 @@ function WidgetRenderer({ widget }: { widget: Widget }) {
   
   // Get remove function from store (Zustand selectors return stable references)
   const removeWidget = useDashboardStore((state) => state.removeWidget)
+  
+  // Edit modal state
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   
   // Memoize remove handler to prevent unnecessary re-renders of memoized widget
   // This ensures the onRemove prop reference stays stable unless widget ID changes
@@ -71,14 +75,35 @@ function WidgetRenderer({ widget }: { widget: Widget }) {
                   <span className="text-accent">⚙️</span>
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-sm font-medium text-foreground">
-                    {title || 'Unconfigured Widget'}
-                  </h3>
+                  <div className="flex items-center gap-2 group/title">
+                    <h3 className="text-sm font-medium text-foreground">
+                      {title || 'Unconfigured Widget'}
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditModalOpen(true)}
+                      className="rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-gray-800 hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-gray-900 group-hover/title:opacity-100"
+                      aria-label={`Edit ${title || 'widget'}`}
+                    >
+                      <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                    </button>
+                  </div>
+                  {widget.description && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {widget.description}
+                    </p>
+                  )}
                   <p className="mt-1 text-xs text-muted-foreground">
                     This widget needs configuration. Please add a stock symbol to display data.
                   </p>
                 </div>
               </div>
+              {/* Edit Widget Modal */}
+              <EditWidgetModal
+                isOpen={isEditModalOpen}
+                widget={widget}
+                onClose={() => setIsEditModalOpen(false)}
+              />
             </div>
           </WidgetErrorBoundary>
         )
@@ -124,14 +149,35 @@ function WidgetRenderer({ widget }: { widget: Widget }) {
                 <span className="text-lg">?</span>
               </div>
               <div className="flex-1">
-                <h3 className="text-sm font-medium text-foreground">
-                  {title || 'Unknown Widget'}
-                </h3>
+                <div className="flex items-center gap-2 group/title">
+                  <h3 className="text-sm font-medium text-foreground">
+                    {title || 'Unknown Widget'}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditModalOpen(true)}
+                    className="rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-gray-800 hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-gray-900 group-hover/title:opacity-100"
+                    aria-label={`Edit ${title || 'widget'}`}
+                  >
+                    <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                  </button>
+                </div>
+                {widget.description && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {widget.description}
+                  </p>
+                )}
                 <p className="mt-1 text-xs text-muted-foreground">
                   Widget type &quot;{type}&quot; is not yet implemented
                 </p>
               </div>
             </div>
+            {/* Edit Widget Modal */}
+            <EditWidgetModal
+              isOpen={isEditModalOpen}
+              widget={widget}
+              onClose={() => setIsEditModalOpen(false)}
+            />
           </div>
         </WidgetErrorBoundary>
       )
@@ -150,6 +196,7 @@ export default memo(WidgetRenderer, (prevProps, nextProps) => {
   if (prevProps.widget.id !== nextProps.widget.id) return false
   if (prevProps.widget.type !== nextProps.widget.type) return false
   if (prevProps.widget.title !== nextProps.widget.title) return false
+  if (prevProps.widget.description !== nextProps.widget.description) return false
   
   // Deep compare config for price-card widgets (most common case)
   // Only compare relevant config properties to avoid unnecessary re-renders

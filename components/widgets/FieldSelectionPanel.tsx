@@ -1,8 +1,10 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { ChevronDown, ChevronUp, Settings2, Code } from 'lucide-react'
-import { extractFields, formatFieldLabel, getNestedValue } from '@/lib/utils/fieldExtraction'
+import { useState, useMemo, useEffect, useRef } from 'react'
+import { ChevronDown, ChevronUp, Settings2, Code, AlertTriangle } from 'lucide-react'
+import { extractFields, formatFieldLabel, getNestedValue, hasMetaFields, filterMetaFields, isMetaField } from '@/lib/utils/fieldExtraction'
+import type { FormatType } from '@/lib/utils/valueFormatter'
+import { getDefaultFormatType } from '@/lib/utils/valueFormatter'
 
 /**
  * Field Selection Panel Props
@@ -16,6 +18,12 @@ interface FieldSelectionPanelProps {
   
   /** Callback when selected fields change */
   onFieldsChange: (fields: string[]) => void
+  
+  /** Field format preferences (field path -> format type) */
+  fieldFormats?: Record<string, FormatType>
+  
+  /** Callback when field format preferences change */
+  onFieldFormatsChange?: (formats: Record<string, FormatType>) => void
   
   /** Widget ID for persistence */
   widgetId?: string
@@ -31,27 +39,89 @@ export function FieldSelectionPanel({
   rawResponse,
   selectedFields,
   onFieldsChange,
+  fieldFormats = {},
+  onFieldFormatsChange,
   widgetId,
 }: FieldSelectionPanelProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [isJsonPreviewOpen, setIsJsonPreviewOpen] = useState(false)
+  
+  // Track the last rawResponse we processed to avoid duplicate cleanups
+  const lastProcessedResponseRef = useRef<unknown>(null)
 
-  // Extract available fields from raw response
+  // Detect if meta fields are present in the response
+  const hasMetaFieldsDetected = useMemo(() => {
+    if (!rawResponse) {
+      return false
+    }
+    return hasMetaFields(rawResponse)
+  }, [rawResponse])
+
+  // Extract available fields from raw response, filtering out meta fields
   const availableFields = useMemo(() => {
     if (!rawResponse) {
       return []
     }
-    return extractFields(rawResponse)
+    const allFields = extractFields(rawResponse)
+    return filterMetaFields(allFields)
   }, [rawResponse])
+
+  // Clean selected fields: remove any meta fields that might have been selected previously
+  // This ensures selected fields remain intact for valid fields, but removes meta fields
+  // Only run when rawResponse changes to detect new meta fields
+  useEffect(() => {
+    if (!rawResponse || rawResponse === lastProcessedResponseRef.current) {
+      return
+    }
+    
+    // Track that we've processed this response
+    lastProcessedResponseRef.current = rawResponse
+    
+    const metaFieldsInSelected = selectedFields.filter((field) => isMetaField(field))
+    
+    // Only update if there are meta fields in selected fields
+    if (metaFieldsInSelected.length > 0) {
+      const cleanedFields = selectedFields.filter((field) => !isMetaField(field))
+      onFieldsChange(cleanedFields)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawResponse]) // Intentionally only depend on rawResponse to avoid infinite loops
 
   // Handle field toggle
   const toggleField = (field: string) => {
     if (selectedFields.includes(field)) {
       // Deselect field
-      onFieldsChange(selectedFields.filter((f) => f !== field))
+      const newFields = selectedFields.filter((f) => f !== field)
+      onFieldsChange(newFields)
+      
+      // Remove format preference when field is deselected
+      if (onFieldFormatsChange) {
+        const newFormats = { ...fieldFormats }
+        delete newFormats[field]
+        onFieldFormatsChange(newFormats)
+      }
     } else {
       // Select field
       onFieldsChange([...selectedFields, field])
+      
+      // Set default format when field is selected
+      if (onFieldFormatsChange) {
+        const defaultFormat = getDefaultFormatType(field)
+        onFieldFormatsChange({
+          ...fieldFormats,
+          [field]: defaultFormat,
+        })
+      }
+    }
+  }
+
+  // Handle format change for a field
+  const handleFormatChange = (field: string, format: FormatType) => {
+    if (onFieldFormatsChange) {
+      onFieldFormatsChange({
+        ...fieldFormats,
+        [field]: format,
+      })
     }
   }
 
@@ -86,6 +156,21 @@ export function FieldSelectionPanel({
 
       {isOpen && (
         <div className="space-y-3 p-2">
+          {/* Warning Banner for Meta Fields */}
+          {hasMetaFieldsDetected && (
+            <div className="flex items-start gap-2 rounded-md border border-yellow-900/50 bg-yellow-950/30 p-2.5">
+              <AlertTriangle className="h-3.5 w-3.5 text-yellow-500 mt-0.5 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-yellow-400">
+                  API rate limit reached. Data may be stale.
+                </p>
+                <p className="text-[10px] text-yellow-500/80 mt-0.5">
+                  Meta fields have been automatically excluded from selection.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* JSON Preview Section */}
           <div className="border-t border-gray-800 pt-2">
             <button
@@ -127,30 +212,52 @@ export function FieldSelectionPanel({
                   const isSelected = selectedFields.includes(field)
                   const value = getNestedValue(rawResponse, field)
                   const label = formatFieldLabel(field)
+                  const currentFormat = fieldFormats[field] || getDefaultFormatType(field)
 
                   return (
-                    <label
+                    <div
                       key={field}
-                      className="flex cursor-pointer items-start gap-2 rounded p-1.5 text-xs hover:bg-gray-800/50 transition-colors"
+                      className="rounded p-1.5 text-xs hover:bg-gray-800/50 transition-colors"
                     >
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => toggleField(field)}
-                        className="mt-0.5 h-3 w-3 rounded border-gray-700 bg-gray-900 text-accent focus:ring-1 focus:ring-accent focus:ring-offset-0"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-foreground">{label}</div>
-                        <div className="mt-0.5 truncate text-[10px] text-muted-foreground font-mono">
-                          {field}
-                        </div>
-                        {value !== null && value !== undefined && (
-                          <div className="mt-0.5 text-[10px] text-muted-foreground">
-                            Value: {String(value)}
+                      <label className="flex cursor-pointer items-start gap-2">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleField(field)}
+                          className="mt-0.5 h-3 w-3 rounded border-gray-700 bg-gray-900 text-accent focus:ring-1 focus:ring-accent focus:ring-offset-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-foreground">{label}</div>
+                          <div className="mt-0.5 truncate text-[10px] text-muted-foreground font-mono">
+                            {field}
                           </div>
-                        )}
-                      </div>
-                    </label>
+                          {value !== null && value !== undefined && (
+                            <div className="mt-0.5 text-[10px] text-muted-foreground">
+                              Value: {String(value)}
+                            </div>
+                          )}
+                        </div>
+                      </label>
+                      {/* Format selector - shown when field is selected */}
+                      {isSelected && onFieldFormatsChange && (
+                        <div className="ml-5 mt-2 flex items-center gap-2">
+                          <label className="text-[10px] text-muted-foreground">
+                            Format:
+                          </label>
+                          <select
+                            value={currentFormat}
+                            onChange={(e) => handleFormatChange(field, e.target.value as FormatType)}
+                            className="rounded border border-gray-700 bg-gray-900 px-2 py-0.5 text-[10px] text-foreground focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <option value="raw">Raw</option>
+                            <option value="currency">Currency</option>
+                            <option value="percentage">Percentage</option>
+                            <option value="number">Number</option>
+                          </select>
+                        </div>
+                      )}
+                    </div>
                   )
                 })
               )}

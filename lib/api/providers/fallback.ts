@@ -47,6 +47,12 @@ export interface FetchWithFallbackResult {
   normalized: NormalizedStockData
   /** Raw API response from the provider */
   rawResponse: unknown
+  /** Provider that successfully returned data */
+  provider: ProviderName
+  /** Whether fallback occurred (data came from alternate provider) */
+  usedFallback: boolean
+  /** Preferred provider that was requested */
+  preferredProvider: ProviderName
 }
 
 /**
@@ -96,6 +102,7 @@ export async function fetchStockDataWithFallback(
   const errors: Array<{ provider: string; error: string }> = []
 
   // Try each provider in order
+  let attemptIndex = 0
   for (const provider of reorderedProviders) {
     try {
       const data = await provider.fetch(normalizedSymbol)
@@ -103,9 +110,16 @@ export async function fetchStockDataWithFallback(
       // Fetch raw response for field extraction
       const rawResponse = await fetchRawResponse(provider.name, normalizedSymbol)
       
+      // Determine if fallback was used (if we tried the preferred provider first, 
+      // any subsequent provider is a fallback)
+      const usedFallback = attemptIndex > 0
+      
       return {
         normalized: data,
         rawResponse,
+        provider: provider.name,
+        usedFallback,
+        preferredProvider,
       }
     } catch (error) {
       // Collect error information for user-friendly error message
@@ -118,6 +132,7 @@ export async function fetchStockDataWithFallback(
 
       // Continue to next provider if this one failed
       // All errors are retryable (rate limits, network errors, invalid symbols)
+      attemptIndex++
       continue
     }
   }

@@ -45,5 +45,11 @@ export interface StockPriceState {
   
   /** Whether data has been fetched at least once */
   hasFetched: boolean
+  
+  /** Provider that successfully returned data */
+  provider: 'alpha-vantage' | 'finnhub' | null
+  
+  /** Whether fallback occurred (data came from alternate provider) */
+  usedFallback: boolean
 }
 

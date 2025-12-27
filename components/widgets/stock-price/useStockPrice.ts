@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { fetchWithFallback } from '@/lib/api/providers/fallback'
+import type { ProviderName } from '@/lib/api/providers/fallback'
 import { cacheManager } from '@/lib/cache/cacheManager'
 import type { StockQuote } from '@/lib/types/api'
 import type { StockPriceState } from './types'
@@ -17,7 +18,8 @@ import { NetworkError, RateLimitError } from '@/lib/api/providers/types'
  * @param symbol - Stock symbol to fetch (e.g., "AAPL")
  * @param refreshInterval - Refresh interval in milliseconds (default: 30000 = 30 seconds)
  *                          Set to 0 or null to disable auto-refresh
- * @returns Stock price state with data, loading, and error
+ * @param provider - Preferred provider to use (default: 'alpha-vantage')
+ * @returns Stock price state with data, loading, error, provider, and fallback info
  * 
  * @example
  * ```tsx
@@ -27,13 +29,14 @@ import { NetworkError, RateLimitError } from '@/lib/api/providers/types'
  * // Custom 60-second refresh
  * const { data, isLoading, error } = useStockPrice('AAPL', 60000)
  * 
- * // Disable auto-refresh
- * const { data, isLoading, error } = useStockPrice('AAPL', 0)
+ * // With specific provider
+ * const { data, isLoading, error, provider, usedFallback } = useStockPrice('AAPL', 30000, 'finnhub')
  * ```
  */
 export function useStockPrice(
   symbol: string,
-  refreshInterval: number | null = 30000
+  refreshInterval: number | null = 30000,
+  provider: ProviderName = 'alpha-vantage'
 ): StockPriceState {
   const [state, setState] = useState<StockPriceState>({
     data: null,
@@ -41,6 +44,8 @@ export function useStockPrice(
     isLoading: false,
     error: null,
     hasFetched: false,
+    provider: null,
+    usedFallback: false,
   })
 
   // Track if a fetch is in progress to prevent overlapping calls
@@ -100,8 +105,13 @@ export function useStockPrice(
 
       try {
         // Fetch fresh data with fallback logic
-        // Tries Alpha Vantage → Finnhub in sequence
-        const { normalized: normalizedData, rawResponse } = await fetchWithFallback(normalizedSymbol)
+        // Tries preferred provider → fallback provider in sequence
+        const { 
+          normalized: normalizedData, 
+          rawResponse, 
+          provider: actualProvider,
+          usedFallback 
+        } = await fetchWithFallback(normalizedSymbol, provider)
         
         // Convert normalized data to StockQuote format
         const quote: StockQuote = {
@@ -115,9 +125,9 @@ export function useStockPrice(
           previousClose: normalizedData.previousClose,
         }
         
-        // Cache the result
+        // Cache the result (use provider-specific cache key)
         const cacheKey = cacheManager.generateKey(
-          'multi-provider',
+          actualProvider,
           'stock-price',
           normalizedSymbol
         )
@@ -130,6 +140,8 @@ export function useStockPrice(
           isLoading: false,
           error: null,
           hasFetched: true,
+          provider: actualProvider,
+          usedFallback,
         })
       } catch (error) {
         // If we have cached data, keep it even if fetch fails
@@ -176,7 +188,7 @@ export function useStockPrice(
       // Reset fetching flag on cleanup
       isFetchingRef.current = false
     }
-  }, [symbol, refreshInterval]) // Re-run when symbol or interval changes
+  }, [symbol, refreshInterval, provider]) // Re-run when symbol, interval, or provider changes
 
   return state
 }

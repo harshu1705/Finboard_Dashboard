@@ -180,3 +180,97 @@ export function formatFieldLabel(path: string): string {
   return label.trim() || path
 }
 
+/**
+ * List of meta/system fields that should be excluded from field selection
+ * These are typically API metadata, error messages, or rate limit indicators
+ * Provider-agnostic list that can be extended for future APIs
+ */
+const META_FIELDS = [
+  'Information',
+  'Note',
+  'Error Message',
+]
+
+/**
+ * Checks if a field path matches any meta/system field
+ * Handles both direct matches and nested paths (e.g., "Information" or "root.Information")
+ * 
+ * @param fieldPath - The field path to check
+ * @returns True if the field is a meta field
+ * 
+ * @example
+ * ```typescript
+ * isMetaField('Information') // Returns: true
+ * isMetaField('Note') // Returns: true
+ * isMetaField('Error Message') // Returns: true
+ * isMetaField('price') // Returns: false
+ * isMetaField('root.Information') // Returns: true
+ * ```
+ */
+export function isMetaField(fieldPath: string): boolean {
+  if (!fieldPath || typeof fieldPath !== 'string') {
+    return false
+  }
+
+  // Check if the field path ends with any meta field (handles both direct and nested paths)
+  const normalizedPath = fieldPath.trim()
+  
+  for (const metaField of META_FIELDS) {
+    // Exact match
+    if (normalizedPath === metaField) {
+      return true
+    }
+    
+    // Match at the end of a dot-notation path (e.g., "root.Information")
+    if (normalizedPath.endsWith(`.${metaField}`)) {
+      return true
+    }
+  }
+
+  return false
+}
+
+/**
+ * Detects if an API response contains meta/system fields
+ * 
+ * @param response - The API response object
+ * @returns True if meta fields are present in the response
+ * 
+ * @example
+ * ```typescript
+ * hasMetaFields({ Information: 'Rate limit exceeded' }) // Returns: true
+ * hasMetaFields({ price: 100, symbol: 'AAPL' }) // Returns: false
+ * ```
+ */
+export function hasMetaFields(response: unknown): boolean {
+  if (!response || typeof response !== 'object') {
+    return false
+  }
+
+  // Check top-level keys for meta fields
+  const responseObj = response as Record<string, unknown>
+  for (const key of Object.keys(responseObj)) {
+    if (META_FIELDS.includes(key)) {
+      return true
+    }
+  }
+
+  return false
+}
+
+/**
+ * Filters out meta/system fields from a list of field paths
+ * 
+ * @param fields - Array of field paths
+ * @returns Array of field paths with meta fields removed
+ * 
+ * @example
+ * ```typescript
+ * filterMetaFields(['price', 'Information', 'symbol', 'Note'])
+ * // Returns: ['price', 'symbol']
+ * ```
+ */
+export function filterMetaFields(fields: string[]): string[] {
+  return fields.filter((field) => !isMetaField(field))
+}
+
