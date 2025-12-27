@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { ChevronDown, ChevronUp, Settings2 } from 'lucide-react'
+import { ChevronDown, ChevronUp, Settings2, Code } from 'lucide-react'
 import { extractFields, formatFieldLabel, getNestedValue } from '@/lib/utils/fieldExtraction'
 
 /**
@@ -34,6 +34,7 @@ export function FieldSelectionPanel({
   widgetId,
 }: FieldSelectionPanelProps) {
   const [isOpen, setIsOpen] = useState(false)
+  const [isJsonPreviewOpen, setIsJsonPreviewOpen] = useState(false)
 
   // Extract available fields from raw response
   const availableFields = useMemo(() => {
@@ -84,41 +85,77 @@ export function FieldSelectionPanel({
       </button>
 
       {isOpen && (
-        <div className="max-h-48 space-y-1 overflow-y-auto p-2">
-          {availableFields.length === 0 ? (
-            <p className="text-xs text-muted-foreground">No fields available</p>
-          ) : (
-            availableFields.map((field) => {
-              const isSelected = selectedFields.includes(field)
-              const value = getNestedValue(rawResponse, field)
-              const label = formatFieldLabel(field)
+        <div className="space-y-3 p-2">
+          {/* JSON Preview Section */}
+          <div className="border-t border-gray-800 pt-2">
+            <button
+              type="button"
+              onClick={() => setIsJsonPreviewOpen(!isJsonPreviewOpen)}
+              className="flex w-full items-center justify-between text-xs text-muted-foreground hover:text-foreground transition-colors"
+              aria-label={isJsonPreviewOpen ? 'Collapse JSON preview' : 'Expand JSON preview'}
+            >
+              <div className="flex items-center gap-2">
+                <Code className="h-3 w-3" />
+                <span>API Response Preview</span>
+              </div>
+              {isJsonPreviewOpen ? (
+                <ChevronUp className="h-3 w-3" />
+              ) : (
+                <ChevronDown className="h-3 w-3" />
+              )}
+            </button>
+            
+            {isJsonPreviewOpen && (
+              <div className="mt-2 max-h-48 overflow-y-auto rounded border border-gray-800 bg-gray-950 p-3">
+                <pre className="text-[10px] font-mono text-muted-foreground whitespace-pre-wrap break-words">
+                  {JSON.stringify(rawResponse, null, 2)}
+                </pre>
+              </div>
+            )}
+          </div>
 
-              return (
-                <label
-                  key={field}
-                  className="flex cursor-pointer items-start gap-2 rounded p-1.5 text-xs hover:bg-gray-800/50 transition-colors"
-                >
-                  <input
-                    type="checkbox"
-                    checked={isSelected}
-                    onChange={() => toggleField(field)}
-                    className="mt-0.5 h-3 w-3 rounded border-gray-700 bg-gray-900 text-accent focus:ring-1 focus:ring-accent focus:ring-offset-0"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-foreground">{label}</div>
-                    <div className="mt-0.5 truncate text-[10px] text-muted-foreground font-mono">
-                      {field}
-                    </div>
-                    {value !== null && value !== undefined && (
-                      <div className="mt-0.5 text-[10px] text-muted-foreground">
-                        Value: {String(value)}
+          {/* Field Selection Section */}
+          <div>
+            <div className="mb-2 text-xs font-medium text-foreground">
+              Select Fields to Display
+            </div>
+            <div className="max-h-48 space-y-1 overflow-y-auto">
+              {availableFields.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No fields available</p>
+              ) : (
+                availableFields.map((field) => {
+                  const isSelected = selectedFields.includes(field)
+                  const value = getNestedValue(rawResponse, field)
+                  const label = formatFieldLabel(field)
+
+                  return (
+                    <label
+                      key={field}
+                      className="flex cursor-pointer items-start gap-2 rounded p-1.5 text-xs hover:bg-gray-800/50 transition-colors"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleField(field)}
+                        className="mt-0.5 h-3 w-3 rounded border-gray-700 bg-gray-900 text-accent focus:ring-1 focus:ring-accent focus:ring-offset-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-foreground">{label}</div>
+                        <div className="mt-0.5 truncate text-[10px] text-muted-foreground font-mono">
+                          {field}
+                        </div>
+                        {value !== null && value !== undefined && (
+                          <div className="mt-0.5 text-[10px] text-muted-foreground">
+                            Value: {String(value)}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                </label>
-              )
-            })
-          )}
+                    </label>
+                  )
+                })
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

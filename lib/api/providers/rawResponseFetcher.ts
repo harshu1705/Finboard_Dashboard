@@ -10,7 +10,6 @@ import type { NetworkError, RateLimitError, ProviderError } from './types'
 const API_KEYS = {
   'alpha-vantage': process.env.NEXT_PUBLIC_ALPHA_VANTAGE_API_KEY,
   'finnhub': process.env.NEXT_PUBLIC_FINNHUB_API_KEY,
-  'indian-api': process.env.NEXT_PUBLIC_INDIAN_API_KEY,
 }
 
 const BASE_URLS = {
@@ -18,24 +17,20 @@ const BASE_URLS = {
     process.env.NEXT_PUBLIC_ALPHA_VANTAGE_BASE_URL ||
     'https://www.alphavantage.co/query',
   'finnhub': 'https://finnhub.io/api/v1/quote',
-  'indian-api':
-    process.env.NEXT_PUBLIC_INDIAN_API_BASE_URL ||
-    'https://api.example-indian-stock-api.com/v1/quote',
 }
 
 /**
  * Fetches raw response from a specific provider
  */
 export async function fetchStockDataRaw(
-  providerName: 'alpha-vantage' | 'finnhub' | 'indian-api',
+  providerName: 'alpha-vantage' | 'finnhub',
   symbol: string
 ): Promise<unknown> {
   const API_KEY = API_KEYS[providerName]
   const BASE_URL = BASE_URLS[providerName]
   const normalizedSymbol = symbol.trim().toUpperCase()
 
-  if (!API_KEY && providerName !== 'indian-api') {
-    // Indian API might not require key
+  if (!API_KEY) {
     throw new ProviderError(
       `${providerName} API key is missing`,
       providerName
@@ -48,15 +43,10 @@ export async function fetchStockDataRaw(
   if (providerName === 'alpha-vantage') {
     url.searchParams.set('function', 'GLOBAL_QUOTE')
     url.searchParams.set('symbol', normalizedSymbol)
-    url.searchParams.set('apikey', API_KEY!)
+    url.searchParams.set('apikey', API_KEY)
   } else if (providerName === 'finnhub') {
     url.searchParams.set('symbol', normalizedSymbol)
-    url.searchParams.set('token', API_KEY!)
-  } else if (providerName === 'indian-api') {
-    url.searchParams.set('symbol', normalizedSymbol)
-    if (API_KEY) {
-      url.searchParams.set('apikey', API_KEY)
-    }
+    url.searchParams.set('token', API_KEY)
   }
 
   try {

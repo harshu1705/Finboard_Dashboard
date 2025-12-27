@@ -6,7 +6,6 @@
 
 export { fetchStockData as fetchAlphaVantage } from './alphaVantage'
 export { fetchStockData as fetchFinnhub } from './finnhub'
-export { fetchStockData as fetchIndianApi } from './indianApi'
 export { fetchWithFallback, getAvailableProviders } from './fallback'
 export type { NormalizedStockData, ProviderError, NetworkError, RateLimitError } from './types'
 

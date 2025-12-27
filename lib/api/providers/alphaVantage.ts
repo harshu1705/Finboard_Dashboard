@@ -133,23 +133,41 @@ export async function fetchStockData(
     const data: AlphaVantageQuoteResponse | AlphaVantageErrorResponse =
       await response.json()
 
-    // Check for rate limit errors
-    if (isRateLimitError(data as AlphaVantageErrorResponse)) {
-      throw new RateLimitError(
-        'Alpha Vantage API rate limit exceeded. Please try again later.',
+    // Check for rate limit indicators first (before checking structure)
+    // Alpha Vantage returns Note or Information fields when rate limited
+    const errorData = data as AlphaVantageErrorResponse
+    if (errorData.Note || errorData.Information) {
+      // Check if it's a rate limit message
+      const noteLower = (errorData.Note || '').toLowerCase()
+      const infoLower = (errorData.Information || '').toLowerCase()
+      
+      if (
+        noteLower.includes('call frequency') ||
+        noteLower.includes('rate limit') ||
+        noteLower.includes('api call') ||
+        infoLower.includes('call frequency') ||
+        infoLower.includes('rate limit')
+      ) {
+        throw new RateLimitError(
+          'Alpha Vantage API rate limit exceeded. Please try again later.',
+          'alpha-vantage'
+        )
+      }
+      
+      // If it's not a rate limit, it's another API error
+      const errorMessage = extractErrorMessage(errorData)
+      throw new ProviderError(errorMessage, 'alpha-vantage')
+    }
+
+    // Check for explicit error messages
+    if (errorData['Error Message']) {
+      throw new ProviderError(
+        errorData['Error Message'],
         'alpha-vantage'
       )
     }
 
-    // Check for API errors
-    if (isApiError(data as AlphaVantageErrorResponse)) {
-      const errorMessage = extractErrorMessage(
-        data as AlphaVantageErrorResponse
-      )
-      throw new ProviderError(errorMessage, 'alpha-vantage')
-    }
-
-    // Validate response structure
+    // Validate response structure - must have Global Quote
     if (!('Global Quote' in data)) {
       throw new ProviderError(
         'Invalid response format from Alpha Vantage API',
@@ -159,6 +177,14 @@ export async function fetchStockData(
 
     // Normalize data to common format
     const quote = (data as AlphaVantageQuoteResponse)['Global Quote']
+    
+    // Check for empty Global Quote (another rate limit indicator)
+    if (!quote || Object.keys(quote).length === 0) {
+      throw new RateLimitError(
+        'Alpha Vantage API rate limit exceeded. Please try again later.',
+        'alpha-vantage'
+      )
+    }
     const price = parseFloat(quote['05. price'])
     const open = parseFloat(quote['02. open'])
     const high = parseFloat(quote['03. high'])

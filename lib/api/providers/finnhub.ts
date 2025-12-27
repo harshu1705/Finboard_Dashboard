@@ -84,8 +84,24 @@ export async function fetchStockData(
     // Parse JSON response
     const data: FinnhubQuoteResponse = await response.json()
 
-    // Check for invalid response (Finnhub returns { c: 0 } for invalid symbols)
-    if (!data || typeof data.c !== 'number' || data.c === 0) {
+    // Validate response structure and data
+    if (!data || typeof data !== 'object') {
+      throw new ProviderError(
+        `Invalid response format from Finnhub API for symbol: ${normalizedSymbol}`,
+        'finnhub'
+      )
+    }
+
+    // Validate that price field exists and is a valid number
+    if (typeof data.c !== 'number') {
+      throw new ProviderError(
+        `Invalid price data received from Finnhub API for symbol: ${normalizedSymbol}`,
+        'finnhub'
+      )
+    }
+
+    // Check for invalid response (Finnhub returns { c: 0 } for invalid symbols or no data)
+    if (data.c === 0 || isNaN(data.c) || !isFinite(data.c)) {
       throw new ProviderError(
         `Invalid symbol or no data available for: ${normalizedSymbol}`,
         'finnhub'

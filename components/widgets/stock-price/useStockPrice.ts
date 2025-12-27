@@ -100,7 +100,7 @@ export function useStockPrice(
 
       try {
         // Fetch fresh data with fallback logic
-        // Tries Alpha Vantage → Finnhub → Indian API in sequence
+        // Tries Alpha Vantage → Finnhub in sequence
         const { normalized: normalizedData, rawResponse } = await fetchWithFallback(normalizedSymbol)
         
         // Convert normalized data to StockQuote format

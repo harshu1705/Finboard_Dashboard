@@ -2,19 +2,18 @@
  * Fallback API Provider
  * 
  * Implements fallback logic to try multiple providers in sequence.
- * Tries providers in order: Alpha Vantage → Finnhub → Indian API
+ * Tries providers in order: Alpha Vantage → Finnhub
  */
 
 import type { NormalizedStockData, NetworkError, RateLimitError, ProviderError } from './types'
 import { fetchStockData as fetchAlphaVantage } from './alphaVantage'
 import { fetchStockData as fetchFinnhub } from './finnhub'
-import { fetchStockData as fetchIndianApi } from './indianApi'
 import { fetchStockDataRaw } from './rawResponseFetcher'
 
 /**
  * Provider configuration
  */
-type ProviderName = 'alpha-vantage' | 'finnhub' | 'indian-api'
+export type ProviderName = 'alpha-vantage' | 'finnhub'
 
 interface ProviderConfig {
   name: ProviderName
@@ -22,12 +21,11 @@ interface ProviderConfig {
 }
 
 /**
- * Provider order for fallback (primary → secondary → tertiary)
+ * Provider order for fallback (primary → secondary)
  */
 const PROVIDERS: ProviderConfig[] = [
   { name: 'alpha-vantage', fetch: fetchAlphaVantage },
   { name: 'finnhub', fetch: fetchFinnhub },
-  { name: 'indian-api', fetch: fetchIndianApi },
 ]
 
 /**
@@ -55,9 +53,8 @@ export interface FetchWithFallbackResult {
  * Fetch stock data with automatic fallback to next provider on failure
  * 
  * Tries providers in order:
- * 1. Alpha Vantage (primary)
- * 2. Finnhub (secondary)
- * 3. Indian API (tertiary)
+ * 1. Preferred provider (default: Alpha Vantage)
+ * 2. Fallback provider (Finnhub if Alpha Vantage was preferred, vice versa)
  * 
  * @param symbol - Stock symbol to fetch
  * @param preferredProvider - Optional preferred provider to try first (default: 'alpha-vantage')
@@ -75,10 +72,21 @@ export interface FetchWithFallbackResult {
  * }
  * ```
  */
-export async function fetchWithFallback(
+export async function fetchStockDataWithFallback(
   symbol: string,
   preferredProvider: ProviderName = 'alpha-vantage'
 ): Promise<FetchWithFallbackResult> {
+  // Validate symbol input
+  if (!symbol || typeof symbol !== 'string' || symbol.trim().length === 0) {
+    throw new ProviderError(
+      'Symbol must be a non-empty string',
+      preferredProvider
+    )
+  }
+
+  // Normalize symbol
+  const normalizedSymbol = symbol.trim().toUpperCase()
+
   // Reorder providers to start with preferred provider
   const reorderedProviders = [
     ...PROVIDERS.filter((p) => p.name === preferredProvider),
@@ -90,21 +98,17 @@ export async function fetchWithFallback(
   // Try each provider in order
   for (const provider of reorderedProviders) {
     try {
-      const data = await provider.fetch(symbol)
+      const data = await provider.fetch(normalizedSymbol)
       
       // Fetch raw response for field extraction
-      // We need to get the raw response from the provider
-      // Since providers normalize immediately, we'll need to fetch raw separately
-      // For now, we'll reconstruct a representative raw response from normalized data
-      // In a real implementation, providers would return both normalized and raw
-      const rawResponse = await fetchRawResponse(provider.name, symbol)
+      const rawResponse = await fetchRawResponse(provider.name, normalizedSymbol)
       
       return {
         normalized: data,
         rawResponse,
       }
     } catch (error) {
-      // Collect error information
+      // Collect error information for user-friendly error message
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error'
       errors.push({
@@ -112,26 +116,41 @@ export async function fetchWithFallback(
         error: errorMessage,
       })
 
-      // If error is retryable, continue to next provider
-      if (isRetryableError(error)) {
-        // Continue to next provider
-        continue
-      }
-
-      // For non-retryable errors, still try next provider but log the error
-      // (e.g., invalid symbol might work with different provider)
+      // Continue to next provider if this one failed
+      // All errors are retryable (rate limits, network errors, invalid symbols)
       continue
     }
   }
 
   // All providers failed - return user-friendly error
-  const errorMessages = errors
-    .map((e) => `${e.provider}: ${e.error}`)
-    .join('; ')
+  // Format errors for display
+  const errorSummary = errors.length > 0
+    ? errors.map((e) => {
+        // Make error messages more user-friendly
+        if (e.error.includes('rate limit')) {
+          return `${e.provider}: Rate limit reached`
+        }
+        if (e.error.includes('Network')) {
+          return `${e.provider}: Network error`
+        }
+        return `${e.provider}: ${e.error}`
+      }).join('; ')
+    : 'Unknown error'
 
   throw new Error(
-    `Unable to fetch stock data for "${symbol}". All providers failed: ${errorMessages}`
+    `Unable to fetch stock data for "${normalizedSymbol}". ${errorSummary}. Please try again later.`
   )
+}
+
+/**
+ * Legacy function name for backward compatibility
+ * @deprecated Use fetchStockDataWithFallback instead
+ */
+export async function fetchWithFallback(
+  symbol: string,
+  preferredProvider: ProviderName = 'alpha-vantage'
+): Promise<FetchWithFallbackResult> {
+  return fetchStockDataWithFallback(symbol, preferredProvider)
 }
 
 /**
@@ -144,9 +163,10 @@ async function fetchRawResponse(
 ): Promise<unknown> {
   try {
     return await fetchStockDataRaw(providerName, symbol)
-  } catch {
-    // If raw fetch fails, return a reconstructed object from normalized data
+  } catch (error) {
+    // If raw fetch fails, return empty object
     // This ensures we always have something to extract fields from
+    // The widget will gracefully handle missing raw response
     return {}
   }
 }

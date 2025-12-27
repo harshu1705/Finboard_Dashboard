@@ -134,7 +134,40 @@ function loadPersistedState(): Widget[] | null {
       )
     }
 
-    return validWidgets
+    // Migrate widgets with Indian API provider to Alpha Vantage
+    const migratedWidgets = validWidgets.map((widget) => {
+      const config = widget.config || {}
+      
+      // Check if widget has Indian API provider reference
+      if (config.provider === 'indian-api' || config.provider === 'indian') {
+        // Migrate to Alpha Vantage
+        return {
+          ...widget,
+          config: {
+            ...config,
+            provider: 'alpha-vantage',
+          },
+          updatedAt: Date.now(),
+        }
+      }
+      
+      return widget
+    })
+
+    // If any widgets were migrated, save the updated state
+    if (migratedWidgets.some((w, i) => w.updatedAt !== validWidgets[i]?.updatedAt)) {
+      const migratedState: PersistedState = {
+        version: STORAGE_VERSION,
+        widgets: migratedWidgets,
+      }
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(migratedState))
+      } catch {
+        // Silently fail if we can't save migration
+      }
+    }
+
+    return migratedWidgets
   } catch (error) {
     // Handle JSON parse errors, corrupted data, or any other exceptions
     console.error('[Dashboard Store] Error loading persisted state:', error)
