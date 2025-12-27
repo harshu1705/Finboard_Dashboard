@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect, FormEvent, useRef } from 'react'
-import { X, Play, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { useDashboardStore } from '@/lib/stores/dashboardStore'
-import type { WidgetType, CreateWidgetPayload } from '@/lib/types/widget'
+import type { CreateWidgetPayload, WidgetType } from '@/lib/types/widget'
+import { AlertCircle, CheckCircle2, Play, X } from 'lucide-react'
+import { FormEvent, useEffect, useRef, useState } from 'react'
 import JsonViewer from './JsonViewer'
 
 interface AddWidgetModalProps {
@@ -504,10 +504,10 @@ export default function AddWidgetModal({ isOpen, onClose }: AddWidgetModalProps)
             </div>
 
             {/* API Response Section */}
-            {(apiResponse || apiError) && (
+            {(apiResponse !== null || apiError !== null) && (
               <div className="space-y-4">
                 {/* Error Display */}
-                {apiError && (
+                {apiError !== null && (
                   <div className="rounded-lg border border-red-900/50 bg-red-950/20 p-4">
                     <div className="flex items-start gap-3">
                       <AlertCircle className="h-5 w-5 shrink-0 text-red-400" />
@@ -522,7 +522,7 @@ export default function AddWidgetModal({ isOpen, onClose }: AddWidgetModalProps)
                 )}
 
                 {/* Success Display */}
-                {apiResponse && !apiError && (
+                {apiResponse !== null && apiError === null && (
                   <div className="rounded-lg border border-green-900/50 bg-green-950/20 p-4">
                     <div className="flex items-start gap-3">
                       <CheckCircle2 className="h-5 w-5 shrink-0 text-green-400" />
@@ -539,7 +539,7 @@ export default function AddWidgetModal({ isOpen, onClose }: AddWidgetModalProps)
                 )}
 
                 {/* JSON Viewer */}
-                {apiResponse && (
+                {apiResponse !== null ? (
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     {/* JSON Viewer Panel */}
                     <div className="rounded-lg border border-gray-800 bg-gray-950 p-4">
@@ -588,7 +588,7 @@ export default function AddWidgetModal({ isOpen, onClose }: AddWidgetModalProps)
                       )}
                     </div>
                   </div>
-                )}
+                ) : null}
               </div>
             )}
 
@@ -598,47 +598,22 @@ export default function AddWidgetModal({ isOpen, onClose }: AddWidgetModalProps)
                 htmlFor="refresh-interval"
                 className="mb-2 block text-sm font-medium text-foreground"
               >
-                Refresh Interval (seconds) <span className="text-red-400">*</span>
+                Refresh Interval (seconds)
               </label>
               <input
                 id="refresh-interval"
                 type="number"
                 value={refreshInterval}
-                onChange={(e) => {
-                  setRefreshInterval(e.target.value)
-                  // Clear error when user starts typing
-                  if (errors.refreshInterval) {
-                    setErrors((prev) => ({ ...prev, refreshInterval: undefined }))
-                  }
-                }}
-                onBlur={() => {
-                  // Validate on blur
-                  const error = validateRefreshInterval(refreshInterval)
-                  setErrors((prev) => ({ ...prev, refreshInterval: error }))
-                }}
+                onChange={(e) => setRefreshInterval(e.target.value)}
                 placeholder="30"
                 min="5"
                 max="3600"
-                className={`w-full rounded-lg border px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-gray-900 ${
-                  errors.refreshInterval
-                    ? 'border-red-500 bg-gray-950 focus:border-red-500'
-                    : 'border-gray-800 bg-gray-950 focus:border-accent'
-                }`}
+                className="w-full rounded-lg border border-gray-800 bg-gray-950 px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-gray-900"
                 disabled={isSubmitting}
-                aria-required="true"
-                aria-invalid={!!errors.refreshInterval}
-                aria-describedby={errors.refreshInterval ? 'refresh-interval-error' : undefined}
               />
-              {errors.refreshInterval && (
-                <p id="refresh-interval-error" className="mt-1 text-xs text-red-400">
-                  {errors.refreshInterval}
-                </p>
-              )}
-              {!errors.refreshInterval && (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  How often to refresh data (default: 30 seconds, min: 5 seconds)
-                </p>
-              )}
+              <p className="mt-1 text-xs text-muted-foreground">
+                How often to refresh data (default: 30 seconds, min: 5 seconds)
+              </p>
             </div>
           </div>
 
@@ -656,14 +631,7 @@ export default function AddWidgetModal({ isOpen, onClose }: AddWidgetModalProps)
               ref={lastFocusableRef}
               type="submit"
               className="flex-1 rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-accent-foreground transition-colors hover:bg-accent/90 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={
-                isSubmitting ||
-                !widgetName.trim() ||
-                !stockSymbol.trim() ||
-                !refreshInterval.trim() ||
-                parseInt(refreshInterval, 10) < 5 ||
-                isNaN(parseInt(refreshInterval, 10))
-              }
+              disabled={isSubmitting || !widgetName.trim() || !stockSymbol.trim()}
             >
               {isSubmitting ? 'Adding...' : 'Add Widget'}
             </button>

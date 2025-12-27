@@ -92,6 +92,7 @@ function WidgetRenderer({ widget }: { widget: Widget }) {
             title={title}
             refreshInterval={refreshInterval}
             onRemove={handleRemove}
+            widgetId={id}
           />
         </WidgetErrorBoundary>
       )

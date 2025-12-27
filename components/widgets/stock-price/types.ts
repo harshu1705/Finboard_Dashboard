@@ -22,6 +22,9 @@ export interface StockPriceWidgetProps {
   
   /** Optional callback function to handle widget removal */
   onRemove?: () => void
+  
+  /** Widget ID for config persistence */
+  widgetId?: string
 }
 
 /**
@@ -30,6 +33,9 @@ export interface StockPriceWidgetProps {
 export interface StockPriceState {
   /** Stock quote data */
   data: StockQuote | null
+  
+  /** Raw API response for field extraction */
+  rawResponse: unknown | null
   
   /** Loading state */
   isLoading: boolean

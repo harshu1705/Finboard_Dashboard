@@ -1,15 +1,11 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { fetchStockQuote } from '@/lib/api/alphaVantageClient'
+import { fetchWithFallback } from '@/lib/api/providers/fallback'
 import { cacheManager } from '@/lib/cache/cacheManager'
 import type { StockQuote } from '@/lib/types/api'
 import type { StockPriceState } from './types'
-import {
-  NetworkError,
-  RateLimitError,
-  AlphaVantageError,
-} from '@/lib/types/api'
+import { NetworkError, RateLimitError } from '@/lib/api/providers/types'
 
 /**
  * Custom hook for fetching stock price data with automatic refresh
@@ -41,6 +37,7 @@ export function useStockPrice(
 ): StockPriceState {
   const [state, setState] = useState<StockPriceState>({
     data: null,
+    rawResponse: null,
     isLoading: false,
     error: null,
     hasFetched: false,
@@ -70,8 +67,9 @@ export function useStockPrice(
       }
 
       // Check cache first for instant display (only on initial load)
+      // Use generic cache key (not provider-specific) since we use fallback
       const cacheKey = cacheManager.generateKey(
-        'alpha-vantage',
+        'multi-provider',
         'stock-price',
         normalizedSymbol
       )
@@ -79,8 +77,11 @@ export function useStockPrice(
 
       if (isInitialLoad && cachedData) {
         // Use cached data immediately on initial load
+        // Note: We don't have raw response in cache, so it will be null
+        // Raw response will be fetched on next refresh
         setState({
           data: cachedData,
+          rawResponse: null,
           isLoading: false,
           error: null,
           hasFetched: true,
@@ -98,11 +99,34 @@ export function useStockPrice(
       isFetchingRef.current = true
 
       try {
-        // Fetch fresh data (will use cache internally if available)
-        const quote = await fetchStockQuote(normalizedSymbol, { useCache: true })
+        // Fetch fresh data with fallback logic
+        // Tries Alpha Vantage → Finnhub → Indian API in sequence
+        const { normalized: normalizedData, rawResponse } = await fetchWithFallback(normalizedSymbol)
+        
+        // Convert normalized data to StockQuote format
+        const quote: StockQuote = {
+          symbol: normalizedData.symbol,
+          price: normalizedData.price,
+          lastUpdated: normalizedData.lastUpdated,
+          provider: normalizedData.provider,
+          open: normalizedData.open,
+          high: normalizedData.high,
+          low: normalizedData.low,
+          previousClose: normalizedData.previousClose,
+        }
+        
+        // Cache the result
+        const cacheKey = cacheManager.generateKey(
+          'multi-provider',
+          'stock-price',
+          normalizedSymbol
+        )
+        const cacheTTL = 5 * 60 * 1000 // 5 minutes
+        cacheManager.set(cacheKey, quote, cacheTTL)
         
         setState({
           data: quote,
+          rawResponse,
           isLoading: false,
           error: null,
           hasFetched: true,
@@ -112,6 +136,7 @@ export function useStockPrice(
         if (cachedData) {
           setState({
             data: cachedData,
+            rawResponse: null, // No raw response if using cache
             isLoading: false,
             error: null, // Don't show error if we have cached data
             hasFetched: true,
@@ -120,6 +145,7 @@ export function useStockPrice(
           setState((prev) => ({
             ...prev,
             data: prev.data, // Keep existing data if available
+            rawResponse: prev.rawResponse, // Keep existing raw response if available
             isLoading: false,
             error: error as Error,
             hasFetched: true,

@@ -17,6 +17,21 @@ export interface StockQuote {
   
   /** ISO 8601 timestamp of when data was last updated */
   lastUpdated: string
+  
+  /** Provider that returned this data */
+  provider?: string
+  
+  /** Opening price (optional) */
+  open?: number
+  
+  /** High price (optional) */
+  high?: number
+  
+  /** Low price (optional) */
+  low?: number
+  
+  /** Previous close price (optional) */
+  previousClose?: number
 }
 
 /**
