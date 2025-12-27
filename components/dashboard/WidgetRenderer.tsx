@@ -1,11 +1,13 @@
 'use client'
 
-import { memo, useCallback, useState } from 'react'
-import { X, Pencil } from 'lucide-react'
-import type { Widget } from '@/lib/types/widget'
+import ChartWidget from '@/components/widgets/chart/ChartWidget'
 import StockPriceWidget from '@/components/widgets/stock-price/StockPriceWidget'
+import TableWidget from '@/components/widgets/table/TableWidget'
 import { WidgetErrorBoundary } from '@/components/widgets/WidgetErrorBoundary'
 import { useDashboardStore } from '@/lib/stores/dashboardStore'
+import type { Widget } from '@/lib/types/widget'
+import { Pencil, X } from 'lucide-react'
+import { memo, useCallback, useState } from 'react'
 import EditWidgetModal from './EditWidgetModal'
 
 /**
@@ -60,7 +62,7 @@ function WidgetRenderer({ widget }: { widget: Widget }) {
         // Wrap in error boundary for consistency
         return (
           <WidgetErrorBoundary widgetTitle={title || 'Unconfigured Widget'}>
-            <div className="group relative rounded-lg border border-gray-800 bg-gray-900/50 p-6">
+            <div className="group relative rounded-xl border border-gray-800 bg-gray-900/50 p-6 min-h-[128px] shadow-sm transition-transform hover:-translate-y-0.5 hover:shadow-md">
               {/* Delete button - top-right corner */}
               <button
                 type="button"
@@ -76,7 +78,7 @@ function WidgetRenderer({ widget }: { widget: Widget }) {
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 group/title">
-                    <h3 className="text-sm font-medium text-foreground">
+                    <h3 className="text-base font-semibold text-foreground">
                       {title || 'Unconfigured Widget'}
                     </h3>
                     <button
@@ -123,8 +125,23 @@ function WidgetRenderer({ widget }: { widget: Widget }) {
       )
     }
 
-    case 'table':
-    case 'chart':
+    case 'table': {
+      // Table widget — implemented in components/widgets/table/TableWidget.tsx
+      return (
+        <WidgetErrorBoundary widgetTitle={title || 'Market table'}>
+          <TableWidget widget={widget} onRemove={handleRemove} />
+        </WidgetErrorBoundary>
+      )
+    }
+
+    case 'chart': {
+      return (
+        <WidgetErrorBoundary widgetTitle={title || 'Chart'}>
+          <ChartWidget widget={widget} onRemove={handleRemove} />
+        </WidgetErrorBoundary>
+      )
+    }
+
     case 'portfolio-summary':
     case 'market-news':
     case 'price-chart':
@@ -134,7 +151,7 @@ function WidgetRenderer({ widget }: { widget: Widget }) {
       // Wrap in error boundary for consistency
       return (
         <WidgetErrorBoundary widgetTitle={title || 'Unknown Widget'}>
-          <div className="group relative rounded-lg border border-gray-800 bg-gray-900/50 p-6">
+          <div className="group relative rounded-xl border border-gray-800 bg-gray-900/50 p-6 min-h-[128px] shadow-sm transition-transform hover:-translate-y-0.5 hover:shadow-md">
             {/* Delete button - top-right corner */}
             <button
               type="button"
@@ -150,7 +167,7 @@ function WidgetRenderer({ widget }: { widget: Widget }) {
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2 group/title">
-                  <h3 className="text-sm font-medium text-foreground">
+                  <h3 className="text-base font-semibold text-foreground">
                     {title || 'Unknown Widget'}
                   </h3>
                   <button

@@ -5,7 +5,7 @@
  * Follows the provider abstraction pattern.
  */
 
-import type { NormalizedStockData, ProviderError, NetworkError, RateLimitError } from './types'
+import type { InvalidApiKeyError, NetworkError, NormalizedStockData, ProviderError, RateLimitError } from './types'
 
 // Get API configuration from environment variables
 const API_KEY = process.env.NEXT_PUBLIC_FINNHUB_API_KEY
@@ -66,12 +66,18 @@ export async function fetchStockData(
       cache: 'no-store',
     })
 
-    // Handle HTTP errors
+    // Handle HTTP errors and map to specific error types
     if (!response.ok) {
       // Check for rate limit (429)
       if (response.status === 429) {
         throw new RateLimitError(
           'Finnhub API rate limit exceeded. Please try again later.',
+          'finnhub'
+        )
+      }
+      if (response.status === 401 || response.status === 403) {
+        throw new InvalidApiKeyError(
+          'Invalid API key for Finnhub',
           'finnhub'
         )
       }

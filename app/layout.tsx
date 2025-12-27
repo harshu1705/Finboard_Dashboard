@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import { ThemeProvider } from '@/components/theme/ThemeProvider'
 
 export const metadata: Metadata = {
   title: 'Finance Dashboard',
@@ -15,9 +16,29 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className="dark">
-      <body className="min-h-screen bg-background text-foreground">
-        {children}
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Apply theme immediately to prevent flash */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  const theme = localStorage.getItem('groww-theme') || 'dark';
+                  document.documentElement.classList.remove('light', 'dark');
+                  document.documentElement.classList.add(theme);
+                } catch (e) {
+                  document.documentElement.classList.add('dark');
+                }
+              })();
+            `,
+          }}
+        />
+      </head>
+      <body className="min-h-screen bg-background text-foreground transition-colors duration-200">
+        <ThemeProvider>
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   )

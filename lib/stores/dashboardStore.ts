@@ -1,5 +1,5 @@
+import type { CreateWidgetPayload, Widget } from '@/lib/types/widget'
 import { create } from 'zustand'
-import type { Widget, CreateWidgetPayload } from '@/lib/types/widget'
 
 /**
  * Dashboard store state interface
@@ -329,6 +329,16 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
 
       // Persist immediately after reordering
       savePersistedState(updatedWidgets)
+
+      // Also expose a human-friendly order array for external integrations (optional)
+      try {
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem('groww-dashboard-order', JSON.stringify(updatedWidgets.map((w) => w.id)))
+        }
+      } catch {
+        // ignore
+      }
+
       return { widgets: updatedWidgets }
     })
   },

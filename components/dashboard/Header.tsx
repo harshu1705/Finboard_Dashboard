@@ -1,13 +1,16 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { Plus, Download, Upload } from 'lucide-react'
+import { Plus, Download, Upload, LayoutTemplate } from 'lucide-react'
 import AddWidgetModal from './AddWidgetModal'
+import TemplateModal from './TemplateModal'
 import { useDashboardStore } from '@/lib/stores/dashboardStore'
 import { exportDashboard, importDashboard } from '@/lib/utils/dashboardExport'
+import ThemeToggle from '@/components/theme/ThemeToggle'
 
 export default function Header() {
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const widgets = useDashboardStore((state) => state.widgets)
   const importWidgets = useDashboardStore((state) => state.importWidgets)
@@ -74,6 +77,21 @@ export default function Header() {
 
             {/* Action Buttons */}
             <div className="flex items-center gap-2">
+              {/* Theme Toggle */}
+              <ThemeToggle />
+
+              {/* Templates Button */}
+              <button
+                type="button"
+                onClick={() => setIsTemplateModalOpen(true)}
+                className="hidden sm:flex items-center gap-2 rounded-lg border border-gray-800 bg-transparent px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-background"
+                aria-label="Load dashboard template"
+                title="Load dashboard template"
+              >
+                <LayoutTemplate className="h-4 w-4" aria-hidden="true" />
+                <span className="hidden md:inline">Templates</span>
+              </button>
+
               {/* Export Button */}
               <button
                 type="button"
@@ -128,6 +146,9 @@ export default function Header() {
 
       {/* Add Widget Modal */}
       <AddWidgetModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+      
+      {/* Template Modal */}
+      <TemplateModal isOpen={isTemplateModalOpen} onClose={() => setIsTemplateModalOpen(false)} />
     </>
   )
 }

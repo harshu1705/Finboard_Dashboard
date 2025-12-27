@@ -1,18 +1,18 @@
 'use client'
 
-import { useMemo, memo, useCallback, useEffect, useState, type JSX } from 'react'
-import { Clock, TrendingUp, AlertCircle, X, Pencil } from 'lucide-react'
-import { useStockPrice } from './useStockPrice'
-import type { StockPriceWidgetProps } from './types'
-import { NetworkError, RateLimitError } from '@/lib/api/providers/types'
-import { FieldSelectionPanel } from '@/components/widgets/FieldSelectionPanel'
-import { useDashboardStore } from '@/lib/stores/dashboardStore'
-import { getNestedValue, formatFieldLabel, extractFields } from '@/lib/utils/fieldExtraction'
-import { normalizeApiResponse, getNormalizedField, type NormalizedResponse } from '@/lib/utils/responseNormalizer'
-import { getProviderLabel } from '@/lib/utils/providerUtils'
-import { formatValue, getDefaultFormatType } from '@/lib/utils/valueFormatter'
-import type { FormatType } from '@/lib/utils/valueFormatter'
 import EditWidgetModal from '@/components/dashboard/EditWidgetModal'
+import { FieldSelectionPanel } from '@/components/widgets/FieldSelectionPanel'
+import { NetworkError, RateLimitError } from '@/lib/api/providers/types'
+import { useDashboardStore } from '@/lib/stores/dashboardStore'
+import { extractFields, formatFieldLabel, getNestedValue } from '@/lib/utils/fieldExtraction'
+import { getProviderLabel } from '@/lib/utils/providerUtils'
+import { getNormalizedField, normalizeApiResponse, type NormalizedResponse } from '@/lib/utils/responseNormalizer'
+import type { FormatType } from '@/lib/utils/valueFormatter'
+import { formatValue, getDefaultFormatType } from '@/lib/utils/valueFormatter'
+import { AlertCircle, Clock, Pencil, TrendingUp, X } from 'lucide-react'
+import { memo, useCallback, useEffect, useMemo, useState, type JSX } from 'react'
+import type { StockPriceWidgetProps } from './types'
+import { useStockPrice } from './useStockPrice'
 
 /**
  * Stock Price Widget Component
@@ -50,6 +50,8 @@ function StockPriceWidget({
   
   // Edit modal state
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  // Toggle details view for error messages (collapsed by default to reduce UI noise)
+  const [showErrorDetails, setShowErrorDetails] = useState(false)
   
   // Get provider from config with default fallback
   const provider = useMemo(() => {
@@ -459,32 +461,42 @@ function StockPriceWidget({
   }, [normalizedResponse, selectedFields, rawResponse, fieldFormats])
 
   // Get user-friendly error message based on error type
-  const getErrorMessage = (error: Error): string => {
-    if (error instanceof RateLimitError) {
-      return 'API limit reached. Please try again in a few minutes.'
+  const getErrorSummary = (error: Error): string => {
+    const message = (error && error.message) ? String(error.message).toLowerCase() : ''
+
+    // Rate limit
+    if (error instanceof RateLimitError || message.includes('rate limit') || message.includes('call frequency')) {
+      return 'API rate limit exceeded. Please wait.'
     }
-    if (error instanceof NetworkError) {
-      return 'Network error. Please check your internet connection.'
+
+    // Invalid API key
+    if (message.includes('invalid api') || message.includes('invalid api key') || /401|403/.test(message)) {
+      return 'Invalid API key'
     }
-    // Check for common error messages in generic errors
-    const message = error.message.toLowerCase()
-    if (message.includes('rate limit') || message.includes('call frequency')) {
-      return 'API limit reached. Please try again later.'
+
+    // Network
+    if (error instanceof NetworkError || message.includes('unable to connect') || message.includes('network')) {
+      return 'Network unavailable'
     }
-    if (message.includes('invalid') || message.includes('not found')) {
+
+    // Symbol not found or provider errors
+    if (message.includes('not found') || message.includes('invalid symbol')) {
       return 'Stock symbol not found. Please check the symbol and try again.'
     }
-    if (message.includes('all providers failed')) {
-      return 'Unable to fetch data from any provider. Please try again later.'
-    }
-    // Generic error fallback
-    return error.message || 'Unable to load data. Please try again later.'
+
+    // Generic
+    return 'Unable to load data. Please try again later.'
   }
 
-  // Loading state with improved skeleton
+  const getErrorDetails = (error: Error): string => {
+    // Return the raw error message (full details) for the expandable details view
+    return error.message || String(error)
+  }
+
+  // Loading state with improved skeleton and consistent card layout
   if (isLoading) {
     return (
-      <div className="group relative rounded-lg border border-gray-800 bg-gray-900/50 p-6">
+      <div className="group relative rounded-xl border border-gray-800 bg-gray-900/50 p-6 shadow-sm min-h-[128px] transition-transform hover:-translate-y-0.5 hover:shadow-md">
         {onRemove && (
           <button
             type="button"
@@ -496,11 +508,11 @@ function StockPriceWidget({
           </button>
         )}
         <div className="flex items-center justify-between">
-          <div className="flex-1 space-y-2">
+          <div className="flex-1 space-y-3">
             {/* Title skeleton */}
-            <div className="h-4 w-24 animate-pulse rounded bg-gray-800/60" />
-            {/* Price skeleton */}
-            <div className="h-8 w-32 animate-pulse rounded bg-gray-800/60" />
+            <div className="h-4 w-32 animate-pulse rounded bg-gray-800/60" />
+            {/* Primary metric skeleton - occupies same space as final metric to avoid layout shift */}
+            <div className="h-10 w-48 animate-pulse rounded bg-gray-800/60" />
           </div>
           {/* Icon skeleton */}
           <div className="h-10 w-10 animate-pulse rounded-full bg-gray-800/60" />
@@ -508,16 +520,21 @@ function StockPriceWidget({
         {/* Footer skeleton */}
         <div className="mt-4 flex items-center gap-2">
           <div className="h-3 w-3 animate-pulse rounded bg-gray-800/60" />
-          <div className="h-3 w-24 animate-pulse rounded bg-gray-800/60" />
+          <div className="h-3 w-28 animate-pulse rounded bg-gray-800/60" />
         </div>
       </div>
     )
   }
 
-  // Error state with improved UI
+  // Error state with concise UI + expandable details to avoid overwhelming the dashboard
   if (error) {
+    // local state to toggle details
+    const [showDetails, setShowDetails] = useState(false)
+    const summary = getErrorSummary(error)
+    const details = getErrorDetails(error)
+
     return (
-      <div className="group relative rounded-lg border border-red-900/50 bg-red-950/20 p-6">
+      <div className="group relative rounded-xl border border-red-900/50 bg-red-950/20 p-6 min-h-[128px] shadow-sm">
         {onRemove && (
           <button
             type="button"
@@ -534,7 +551,7 @@ function StockPriceWidget({
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 group/title">
-              <h3 className="mb-1 text-sm font-semibold text-red-400">
+              <h3 className="mb-1 text-base font-semibold text-red-400">
                 {title || symbol.toUpperCase()}
               </h3>
               {widget && (
@@ -553,9 +570,22 @@ function StockPriceWidget({
                 {widget.description}
               </p>
             )}
-            <p className="text-xs text-red-300/80 leading-relaxed">
-              {getErrorMessage(error)}
-            </p>
+
+            {/* Short summary (concise) */}
+            <p className="text-sm text-red-300 font-medium">{summary}</p>
+
+            {/* Expandable details (collapsed by default) */}
+            <div className="mt-2">
+              <button onClick={() => setShowErrorDetails((s) => !s)} className="text-xs text-red-300 underline">{showErrorDetails ? 'Hide details' : 'View details'}</button>
+              {showErrorDetails && (
+                <pre className="mt-2 text-xs text-red-200 whitespace-pre-wrap break-words bg-red-900/10 p-2 rounded">{details}</pre>
+              )}
+            </div>
+
+            <div className="mt-3 flex items-center gap-2">
+              <button onClick={() => location.reload()} className="rounded-md bg-red-700/80 px-3 py-1 text-sm text-white hover:bg-red-600">Retry</button>
+              <span className="text-xs text-red-300">Try again in a few moments</span>
+            </div>
           </div>
         </div>
         {/* Edit Widget Modal */}
@@ -570,10 +600,10 @@ function StockPriceWidget({
     )
   }
 
-  // No data state with improved UI
+  // No data state with consistent card UI
   if (!data) {
     return (
-      <div className="group relative rounded-lg border border-gray-800 bg-gray-900/50 p-6">
+      <div className="group relative rounded-xl border border-gray-800 bg-gray-900/50 p-6 shadow-sm min-h-[128px]">
         {onRemove && (
           <button
             type="button"
@@ -590,7 +620,7 @@ function StockPriceWidget({
           </div>
           <div className="flex-1">
             <div className="flex items-center gap-2 group/title">
-              <h3 className="text-sm font-medium text-foreground">
+              <h3 className="text-base font-semibold text-foreground">
                 {title || symbol.toUpperCase()}
               </h3>
               {widget && (
@@ -627,9 +657,9 @@ function StockPriceWidget({
   }
 
 
-  // Success state - display selected fields
+  // Success state - display selected fields with consistent card styling
   return (
-    <div className="group relative rounded-lg border border-gray-800 bg-gray-900/50 p-6 transition-colors hover:border-gray-700">
+    <div className="group relative rounded-xl border border-gray-800 bg-gray-900/50 p-6 min-h-[128px] shadow-sm transition-transform hover:-translate-y-0.5 hover:shadow-md">
       {/* Delete button - top-right corner, visible on hover */}
       {onRemove && (
         <button
@@ -663,6 +693,15 @@ function StockPriceWidget({
               {widget.description}
             </p>
           )}
+
+          {/* Prominent primary metric (price) to match card spec */}
+          {normalizedResponse.price !== undefined && (
+            <div className="mt-3">
+              <div className="text-xs text-muted-foreground mb-1">Price</div>
+              <div className="text-2xl font-bold text-accent">{formatValue(normalizedResponse.price, fieldFormats['price'] || 'currency')}</div>
+            </div>
+          )}
+
           {/* Render selected fields */}
           <div className="mt-2">
             {renderSelectedFields}
@@ -686,18 +725,18 @@ function StockPriceWidget({
       )}
 
       {/* Footer */}
-      <div className="flex items-center justify-between text-xs text-muted-foreground mt-4">
-        <div className="flex items-center gap-2">
-          <Clock className="h-3 w-3" />
-          <span>Updated {formattedLastUpdated}</span>
+      <div className="flex items-center justify-between mt-4">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Clock className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm text-muted-foreground">Updated <span className="font-semibold text-foreground ml-1">{formattedLastUpdated === 'Just now' ? 'just now' : formattedLastUpdated}</span></span>
         </div>
         {/* Provider badge - shows data source and fallback status */}
         {actualProvider && (
           <div className="flex flex-col items-end gap-1">
             <span
-              className={`rounded px-2 py-0.5 text-[10px] font-medium ${
+              className={`inline-flex items-center whitespace-nowrap rounded px-2 py-1 text-xs font-semibold ${
                 usedFallback
-                  ? 'bg-yellow-950/30 text-yellow-400 border border-yellow-900/50'
+                  ? 'bg-yellow-950/30 text-yellow-300 border border-yellow-900/50'
                   : 'bg-accent/10 text-accent border border-accent/20'
               }`}
             >

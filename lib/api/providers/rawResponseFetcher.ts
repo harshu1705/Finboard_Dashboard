@@ -5,7 +5,7 @@
  * This allows us to explore the full API response structure.
  */
 
-import type { NetworkError, RateLimitError, ProviderError } from './types'
+import type { InvalidApiKeyError, NetworkError, ProviderError, RateLimitError } from './types'
 
 const API_KEYS = {
   'alpha-vantage': process.env.NEXT_PUBLIC_ALPHA_VANTAGE_API_KEY,
@@ -62,6 +62,12 @@ export async function fetchStockDataRaw(
       if (response.status === 429) {
         throw new RateLimitError(
           `${providerName} API rate limit exceeded`,
+          providerName
+        )
+      }
+      if (response.status === 401 || response.status === 403) {
+        throw new InvalidApiKeyError(
+          `${providerName} API key invalid or unauthorized`,
           providerName
         )
       }

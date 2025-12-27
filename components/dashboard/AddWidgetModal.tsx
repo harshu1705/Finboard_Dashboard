@@ -1,12 +1,12 @@
 'use client'
 
+import type { ProviderName } from '@/lib/api/providers/fallback'
+import { fetchStockDataRaw } from '@/lib/api/providers/rawResponseFetcher'
 import { useDashboardStore } from '@/lib/stores/dashboardStore'
 import type { CreateWidgetPayload, WidgetType } from '@/lib/types/widget'
-import type { ProviderName } from '@/lib/api/providers/fallback'
 import { AlertCircle, CheckCircle2, Play, X } from 'lucide-react'
 import { FormEvent, useEffect, useRef, useState } from 'react'
 import JsonViewer from './JsonViewer'
-import { fetchStockDataRaw } from '@/lib/api/providers/rawResponseFetcher'
 
 interface AddWidgetModalProps {
   isOpen: boolean
@@ -32,7 +32,9 @@ export default function AddWidgetModal({ isOpen, onClose }: AddWidgetModalProps)
   const [widgetType, setWidgetType] = useState<WidgetType>('price-card')
   const [apiProvider, setApiProvider] = useState('alpha-vantage')
   const [stockSymbol, setStockSymbol] = useState('')
-  const [refreshInterval, setRefreshInterval] = useState<string>('30')
+  const [refreshInterval, setRefreshInterval] = useState<string>('60')
+  // Table-specific inputs
+  const [tablePageSize, setTablePageSize] = useState<string>('5')
   const [isSubmitting, setIsSubmitting] = useState(false)
   
   // Validation state
@@ -60,7 +62,7 @@ export default function AddWidgetModal({ isOpen, onClose }: AddWidgetModalProps)
       setWidgetType('price-card')
       setApiProvider('alpha-vantage')
       setStockSymbol('')
-      setRefreshInterval('30')
+      setRefreshInterval('60')
       setIsSubmitting(false)
       setApiResponse(null)
       setApiError(null)
@@ -99,13 +101,27 @@ export default function AddWidgetModal({ isOpen, onClose }: AddWidgetModalProps)
     }
     return undefined
   }
+
+  const validateSymbols = (value: string): string | undefined => {
+    const parts = value.split(',').map((p) => p.trim()).filter(Boolean)
+    if (parts.length === 0) return 'At least one symbol is required (comma-separated)'
+    return undefined
+  }
   
-  // Validate all fields and return if form is valid
+  // Validate all fields and return if form is valid (type-aware)
   const isFormValid = (): boolean => {
     const nameError = validateWidgetName(widgetName)
-    const symbolError = validateStockSymbol(stockSymbol)
     const intervalError = validateRefreshInterval(refreshInterval)
-    
+
+    let symbolError: string | undefined
+    if (widgetType === 'price-card' || widgetType === 'chart') {
+      symbolError = validateStockSymbol(stockSymbol)
+    } else if (widgetType === 'table') {
+      symbolError = validateSymbols(stockSymbol)
+    } else {
+      symbolError = undefined
+    }
+
     setErrors({
       widgetName: nameError,
       stockSymbol: symbolError,
@@ -187,22 +203,55 @@ export default function AddWidgetModal({ isOpen, onClose }: AddWidgetModalProps)
 
     // Parse refresh interval (convert seconds to milliseconds)
     const refreshIntervalMs = parseInt(refreshInterval, 10)
-    const validRefreshInterval = isNaN(refreshIntervalMs) || refreshIntervalMs <= 0 
-      ? 30000 // Default 30 seconds
-      : refreshIntervalMs * 1000 // Convert to milliseconds
+    // Enforce minimum interval of 60 seconds (60000ms) to avoid hitting API rate limits
+    const validRefreshInterval = isNaN(refreshIntervalMs) || refreshIntervalMs <= 0
+      ? 60000 // Default 60 seconds
+      : Math.max(refreshIntervalMs * 1000, 60000) // Convert to ms and enforce minimum 60s
 
-    // Create widget payload matching exact specification
-    const widgetPayload: CreateWidgetPayload = {
-      type: 'price-card', // Only price-card for now
-      title: widgetName.trim(),
-      config: {
-        symbol: stockSymbol.trim().toUpperCase(),
-        refreshInterval: validRefreshInterval,
-        provider: (apiProvider as ProviderName) || 'alpha-vantage',
-        selectedFields: selectedFields.length > 0 ? selectedFields : [],
-        // Keep fields for backward compatibility
-        fields: selectedFields.length > 0 ? selectedFields : [],
-      },
+    // Create widget payload matching exact specification (supports price-card and table)
+    let widgetPayload: CreateWidgetPayload
+
+    if (widgetType === 'table') {
+      const symbols = stockSymbol.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean)
+
+      widgetPayload = {
+        type: 'table',
+        title: widgetName.trim(),
+        config: {
+          symbols,
+          refreshInterval: validRefreshInterval,
+          pageSize: Number(tablePageSize) || 5,
+          page: 1,
+          sortField: 'symbol',
+          sortDir: 'asc',
+          selectedFields: selectedFields.length > 0 ? selectedFields : ['price'],
+        },
+      }
+    } else if (widgetType === 'chart') {
+      widgetPayload = {
+        type: 'chart',
+        title: widgetName.trim(),
+        config: {
+          symbol: stockSymbol.trim().toUpperCase(),
+          refreshInterval: validRefreshInterval,
+          provider: (apiProvider as ProviderName) || 'alpha-vantage',
+          chartType: 'line',
+          interval: 'daily',
+        },
+      }
+    } else {
+      widgetPayload = {
+        type: 'price-card',
+        title: widgetName.trim(),
+        config: {
+          symbol: stockSymbol.trim().toUpperCase(),
+          refreshInterval: validRefreshInterval,
+          provider: (apiProvider as ProviderName) || 'alpha-vantage',
+          selectedFields: selectedFields.length > 0 ? selectedFields : [],
+          // Keep fields for backward compatibility
+          fields: selectedFields.length > 0 ? selectedFields : [],
+        },
+      }
     }
 
     // Add widget to store
@@ -214,6 +263,7 @@ export default function AddWidgetModal({ isOpen, onClose }: AddWidgetModalProps)
     setApiProvider('alpha-vantage')
     setStockSymbol('')
     setRefreshInterval('30')
+    setTablePageSize('5')
     setApiResponse(null)
     setApiError(null)
     setSelectedFields([])
@@ -373,6 +423,8 @@ export default function AddWidgetModal({ isOpen, onClose }: AddWidgetModalProps)
                 disabled={isSubmitting}
               >
                 <option value="price-card">Price Card</option>
+                <option value="table">Table</option>
+                <option value="chart">Chart</option>
               </select>
             </div>
 

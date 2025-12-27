@@ -4,10 +4,29 @@
 
 /* CSS Variables for theming - enables easy theme switching later */
 :root {
+  /* Dark theme (default) */
   --background: 222.2 84% 4.9%;
   --foreground: 210 40% 98%;
   --muted-foreground: 215 20.2% 65.1%;
   /* Green accent color - finance dashboard theme */
+  --accent: 142 76% 36%;
+  --accent-foreground: 0 0% 100%;
+}
+
+/* Light theme */
+:root.light {
+  --background: 0 0% 100%;
+  --foreground: 222.2 47.4% 11.2%;
+  --muted-foreground: 215.4 16.3% 46.9%;
+  --accent: 142 76% 36%;
+  --accent-foreground: 0 0% 100%;
+}
+
+/* Dark theme (explicit) */
+:root.dark {
+  --background: 222.2 84% 4.9%;
+  --foreground: 210 40% 98%;
+  --muted-foreground: 215 20.2% 65.1%;
   --accent: 142 76% 36%;
   --accent-foreground: 0 0% 100%;
 }

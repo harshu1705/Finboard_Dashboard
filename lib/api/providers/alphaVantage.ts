@@ -5,7 +5,7 @@
  * Follows the provider abstraction pattern.
  */
 
-import type { NormalizedStockData, ProviderError, NetworkError, RateLimitError } from './types'
+import type { InvalidApiKeyError, NetworkError, NormalizedStockData, ProviderError, RateLimitError } from './types'
 
 // Get API configuration from environment variables
 const API_KEY = process.env.NEXT_PUBLIC_ALPHA_VANTAGE_API_KEY
@@ -121,8 +121,20 @@ export async function fetchStockData(
       cache: 'no-store',
     })
 
-    // Handle HTTP errors
+    // Handle HTTP errors and map to specific error types
     if (!response.ok) {
+      if (response.status === 429) {
+        throw new RateLimitError(
+          'Alpha Vantage API rate limit exceeded. Please try again later.',
+          'alpha-vantage'
+        )
+      }
+      if (response.status === 401 || response.status === 403) {
+        throw new InvalidApiKeyError(
+          'Invalid API key for Alpha Vantage',
+          'alpha-vantage'
+        )
+      }
       throw new NetworkError(
         `HTTP error! status: ${response.status}`,
         new Error(`Status: ${response.status}`)

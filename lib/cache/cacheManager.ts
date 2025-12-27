@@ -66,8 +66,9 @@ class CacheManager {
    * @param symbol - Symbol or identifier (e.g., "AAPL")
    * @returns Cache key string
    */
-  generateKey(apiName: string, widgetType: string, symbol: string): string {
-    return `${apiName}:${widgetType}:${symbol.toUpperCase()}`
+  generateKey(apiName: string, widgetType: string, symbol: string, ...parts: string[]): string {
+    const suffix = parts && parts.length > 0 ? `:${parts.join(':')}` : ''
+    return `${apiName}:${widgetType}:${symbol.toUpperCase()}${suffix}`
   }
 
   /**
@@ -273,5 +274,5 @@ export const cacheManager = new CacheManager({
 })
 
 // Export types
-export type { CacheEntry, CacheConfig }
+export type { CacheConfig, CacheEntry }
 

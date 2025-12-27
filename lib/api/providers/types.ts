@@ -63,6 +63,20 @@ export class RateLimitError extends Error {
   }
 }
 
+export class InvalidApiKeyError extends Error {
+  constructor(message: string, public provider?: string) {
+    super(message)
+    this.name = 'InvalidApiKeyError'
+  }
+}
+
+
+
+
+
+
+
+
 
 
 

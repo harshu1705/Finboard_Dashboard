@@ -1,12 +1,11 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { fetchWithFallback } from '@/lib/api/providers/fallback'
 import type { ProviderName } from '@/lib/api/providers/fallback'
+import { fetchWithFallback } from '@/lib/api/providers/fallback'
 import { cacheManager } from '@/lib/cache/cacheManager'
 import type { StockQuote } from '@/lib/types/api'
+import { useEffect, useRef, useState } from 'react'
 import type { StockPriceState } from './types'
-import { NetworkError, RateLimitError } from '@/lib/api/providers/types'
 
 /**
  * Custom hook for fetching stock price data with automatic refresh
@@ -35,7 +34,7 @@ import { NetworkError, RateLimitError } from '@/lib/api/providers/types'
  */
 export function useStockPrice(
   symbol: string,
-  refreshInterval: number | null = 30000,
+  refreshInterval: number | null = 60000,
   provider: ProviderName = 'alpha-vantage'
 ): StockPriceState {
   const [state, setState] = useState<StockPriceState>({
@@ -64,6 +63,9 @@ export function useStockPrice(
     // Normalize symbol
     const normalizedSymbol = symbol.trim().toUpperCase()
 
+    // Enforce minimum refresh interval to avoid provider rate limits (min 60s)
+    const effectiveRefresh = refreshInterval && refreshInterval > 0 ? Math.max(refreshInterval, 60000) : null
+
     // Fetch function that can be called on demand or by interval
     const fetchData = async (isInitialLoad: boolean = false) => {
       // Prevent overlapping API calls
@@ -72,11 +74,12 @@ export function useStockPrice(
       }
 
       // Check cache first for instant display (only on initial load)
-      // Use generic cache key (not provider-specific) since we use fallback
+      // Use generic cache key (not provider-specific) but include refresh interval grouping
       const cacheKey = cacheManager.generateKey(
         'multi-provider',
         'stock-price',
-        normalizedSymbol
+        normalizedSymbol,
+        String(effectiveRefresh || refreshInterval || 'manual')
       )
       const cachedData = cacheManager.get<StockQuote>(cacheKey)
 
@@ -125,13 +128,15 @@ export function useStockPrice(
           previousClose: normalizedData.previousClose,
         }
         
-        // Cache the result (use provider-specific cache key)
+        // Cache the result (use provider-specific + interval cache key)
         const cacheKey = cacheManager.generateKey(
           actualProvider,
           'stock-price',
-          normalizedSymbol
+          normalizedSymbol,
+          // include refresh interval in key to avoid mixing short/long interval data
+          String(effectiveRefresh || refreshInterval || 'manual')
         )
-        const cacheTTL = 5 * 60 * 1000 // 5 minutes
+        const cacheTTL = 10 * 60 * 1000 // 10 minutes
         cacheManager.set(cacheKey, quote, cacheTTL)
         
         setState({
@@ -173,10 +178,10 @@ export function useStockPrice(
     fetchData(true)
 
     // Set up auto-refresh interval if enabled
-    if (refreshInterval && refreshInterval > 0) {
+    if (effectiveRefresh && effectiveRefresh > 0) {
       intervalRef.current = setInterval(() => {
         fetchData(false) // Background refresh, don't show loading state
-      }, refreshInterval)
+      }, effectiveRefresh)
     }
 
     // Cleanup function

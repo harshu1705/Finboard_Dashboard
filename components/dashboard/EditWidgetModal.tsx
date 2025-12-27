@@ -256,6 +256,97 @@ export default function EditWidgetModal({ isOpen, widget, onClose }: EditWidgetM
                 Add a brief description or subtitle for this widget
               </p>
             </div>
+
+            {/* Table-specific settings */}
+            {widget.type === 'table' && (
+              <div>
+                <label htmlFor="edit-widget-symbols" className="mb-2 block text-sm font-medium text-foreground">Symbols (comma-separated)</label>
+                <textarea
+                  id="edit-widget-symbols"
+                  value={(widget.config?.symbols || []).join(', ')}
+                  onChange={(e) => {
+                    try {
+                      const raw = e.target.value
+                      const parts = raw.split(',').map(p => p.trim()).filter(Boolean)
+                      // Immediate update the local widget config so user sees persisted change on Save
+                      // We'll persist on submit as well
+                      setError(null)
+                      // No local state here: updateWidget directly is fine
+                      // But avoid saving while submitting - store will persist to localStorage
+                      if (parts.length > 0) {
+                        updateWidget(widget.id, { config: { ...widget.config, symbols: parts } })
+                      } else {
+                        updateWidget(widget.id, { config: { ...widget.config, symbols: [] } })
+                      }
+                    } catch (err) {
+                      // Ignore
+                    }
+                  }}
+                  placeholder="AAPL, MSFT, GOOGL"
+                  rows={2}
+                  className="w-full rounded-lg border border-gray-800 bg-gray-950 px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-gray-900 resize-none"
+                  disabled={isSubmitting}
+                />
+
+                <label htmlFor="edit-widget-refresh" className="mt-3 mb-2 block text-sm font-medium text-foreground">Refresh interval (ms)</label>
+                <input
+                  id="edit-widget-refresh"
+                  type="number"
+                  min={0}
+                  value={widget.config?.refreshInterval ?? ''}
+                  onChange={(e) => {
+                    const v = Number(e.target.value)
+                    if (!Number.isFinite(v) || v < 0) return
+                    updateWidget(widget.id, { config: { ...widget.config, refreshInterval: v } })
+                  }}
+                  className="w-32 rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-foreground placeholder:text-muted-foreground focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-gray-900"
+                  disabled={isSubmitting}
+                />
+                <p className="mt-1 text-xs text-muted-foreground">Set the symbols and refresh interval for the table widget</p>
+              </div>
+            )}
+
+            {/* Chart-specific settings */}
+            {widget.type === 'chart' && (
+              <div>
+                <label htmlFor="edit-chart-symbol" className="mb-2 block text-sm font-medium text-foreground">Symbol</label>
+                <input
+                  id="edit-chart-symbol"
+                  type="text"
+                  value={widget.config?.symbol ?? ''}
+                  onChange={(e) => updateWidget(widget.id, { config: { ...widget.config, symbol: e.target.value.toUpperCase() } })}
+                  placeholder="AAPL"
+                  className="w-full rounded-lg border border-gray-800 bg-gray-950 px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-gray-900 uppercase"
+                  disabled={isSubmitting}
+                />
+
+                <div className="mt-3 flex items-center gap-3">
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-foreground">Chart Type</label>
+                    <select value={widget.config?.chartType ?? 'line'} onChange={(e) => updateWidget(widget.id, { config: { ...widget.config, chartType: e.target.value } })} className="rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-foreground">
+                      <option value="line">Line</option>
+                      <option value="candle">Candle</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-foreground">Interval</label>
+                    <select value={widget.config?.interval ?? 'daily'} onChange={(e) => updateWidget(widget.id, { config: { ...widget.config, interval: e.target.value } })} className="rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-foreground">
+                      <option value="daily">Daily</option>
+                      <option value="weekly">Weekly</option>
+                      <option value="monthly">Monthly</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-foreground">Refresh (ms)</label>
+                    <input type="number" value={widget.config?.refreshInterval ?? ''} onChange={(e) => { const v = Number(e.target.value); if (!Number.isFinite(v) || v < 0) return; updateWidget(widget.id, { config: { ...widget.config, refreshInterval: v } }) }} className="w-32 rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-foreground" />
+                  </div>
+                </div>
+
+                <p className="mt-1 text-xs text-muted-foreground">Configure chart symbol, type and interval (Daily/Weekly/Monthly)</p>
+              </div>
+            )}
           </div>
 
           {/* Modal footer */}
