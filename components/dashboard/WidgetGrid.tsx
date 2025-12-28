@@ -76,7 +76,7 @@ export default function WidgetGrid() {
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {widgets.map((widget) => (
-            <div key={widget.id} className="min-w-0">
+            <div key={widget.id} className={`min-w-0 ${widget.type === 'table' ? 'col-span-full' : ''}`}>
               <SortableWidget id={widget.id} useHandle={false}>
                 <WidgetRenderer widget={widget} />
               </SortableWidget>
@@ -91,6 +91,16 @@ export default function WidgetGrid() {
   const { core, sortable, utilities } = dndModules
   const { DndContext, DragOverlay, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors } = core
   const { SortableContext, rectSortingStrategy, sortableKeyboardCoordinates, useSortable } = sortable
+
+  // Try to load modifiers (e.g., restrictToParentElement) if available to constrain drag inside the grid
+  let modifiers: any[] = []
+  try {
+    const req = eval('require') as (pkg: string) => any
+    const modPkg = req('@dnd-kit/modifiers')
+    if (modPkg && modPkg.restrictToParentElement) modifiers.push(modPkg.restrictToParentElement)
+  } catch (err) {
+    // ignore if not available
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -121,18 +131,19 @@ export default function WidgetGrid() {
     reorderWidgets(fromIndex, toIndex)
   }
 
-  function SortableItem({ id, children }: { id: string; children: React.ReactNode }) {
+  function SortableItem({ id, children, spanClass }: { id: string; children: React.ReactNode; spanClass?: string }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
 
     const style = {
       transform: utilities.CSS.Transform.toString(transform),
       transition,
+      transformOrigin: 'center',
     }
 
     const isPreview = overId === id && activeId !== null && activeId !== id
 
     return (
-      <div ref={setNodeRef} style={style as React.CSSProperties} className="min-w-0">
+      <div ref={setNodeRef} style={style as React.CSSProperties} className={`min-w-0 ${spanClass ?? ''}`}>
         <SortableWidget id={id} useHandle={true} handleProps={{ ...attributes, ...listeners }} isDragging={isDragging} style={isPreview ? { outline: '2px dashed rgba(52,211,153,0.12)', boxShadow: '0 6px 20px rgba(16,185,129,0.06)' } : undefined}>
           {children}
         </SortableWidget>
@@ -142,11 +153,11 @@ export default function WidgetGrid() {
 
   return (
     <div className="w-full">
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={(e: any) => handleDragStart(e.active)} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
+      <DndContext modifiers={modifiers} sensors={sensors} collisionDetection={closestCenter} onDragStart={(e: any) => handleDragStart(e.active)} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
         <SortableContext items={widgets.map((w) => w.id)} strategy={rectSortingStrategy}>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {widgets.map((widget) => (
-              <SortableItem key={widget.id} id={widget.id}>
+              <SortableItem key={widget.id} id={widget.id} spanClass={widget.type === 'table' ? 'col-span-full' : undefined}>
                 <WidgetRenderer widget={widget} />
               </SortableItem>
             ))}
@@ -155,8 +166,10 @@ export default function WidgetGrid() {
 
         <DragOverlay dropAnimation={{ duration: 150 }}>
           {activeId ? (
-            <div className="w-full pointer-events-none">
-              <WidgetRenderer widget={widgets.find((w) => w.id === activeId)!} />
+            <div className="w-full pointer-events-none scale-105 transform-gpu" style={{ transformOrigin: 'center', boxShadow: '0 10px 30px rgba(2,6,23,0.6)', cursor: 'grabbing' }}>
+              <div className="opacity-100 pointer-events-none cursor-grabbing">
+                <WidgetRenderer widget={widgets.find((w) => w.id === activeId)!} />
+              </div>
             </div>
           ) : null}
         </DragOverlay>

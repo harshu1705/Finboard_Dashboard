@@ -37,6 +37,7 @@ function WidgetRenderer({ widget }: { widget: Widget }) {
   
   // Edit modal state
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [isRemoving, setIsRemoving] = useState(false)
   
   // Memoize remove handler to prevent unnecessary re-renders of memoized widget
   // Show a confirmation dialog so users "double check" before deleting
@@ -44,7 +45,12 @@ function WidgetRenderer({ widget }: { widget: Widget }) {
     const name = title || id
     const ok = window.confirm(`Remove widget "${name}"? This action cannot be undone.`)
     if (!ok) return
-    removeWidget(id)
+
+    // Trigger a short removal animation before deleting from store
+    setIsRemoving(true)
+    setTimeout(() => {
+      removeWidget(id)
+    }, 180)
   }, [id, removeWidget, title])
 
   // Render widget based on type
@@ -65,11 +71,13 @@ function WidgetRenderer({ widget }: { widget: Widget }) {
         // Wrap in error boundary for consistency
         return (
           <WidgetErrorBoundary widgetTitle={title || 'Unconfigured Widget'}>
-            <div className="group relative rounded-xl border border-gray-800 bg-gray-900/50 p-6 min-h-[128px] shadow-sm transition-transform hover:-translate-y-0.5 hover:shadow-md">
+            <div className={`group relative rounded-xl border border-gray-800 bg-gray-900/50 p-6 min-h-[128px] shadow-sm transition-transform hover:-translate-y-0.5 hover:shadow-md ${isRemoving ? 'opacity-0 scale-95' : ''}`}>
               {/* Delete button - top-right corner */}
               <button
                 type="button"
                 onClick={handleRemove}
+                onPointerDown={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
                 className="absolute right-2 top-2 z-10 rounded-md p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-red-900/20 hover:text-red-400 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900 group-hover:opacity-100"
                 aria-label={`Remove ${title || 'widget'}`}
               >
@@ -87,6 +95,8 @@ function WidgetRenderer({ widget }: { widget: Widget }) {
                     <button
                       type="button"
                       onClick={() => setIsEditModalOpen(true)}
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onMouseDown={(e) => e.stopPropagation()}
                       className="rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-gray-800 hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-gray-900 group-hover/title:opacity-100"
                       aria-label={`Edit ${title || 'widget'}`}
                     >
@@ -154,11 +164,13 @@ function WidgetRenderer({ widget }: { widget: Widget }) {
       // Wrap in error boundary for consistency
       return (
         <WidgetErrorBoundary widgetTitle={title || 'Unknown Widget'}>
-          <div className="group relative rounded-xl border border-gray-800 bg-gray-900/50 p-6 min-h-[128px] shadow-sm transition-transform hover:-translate-y-0.5 hover:shadow-md">
+          <div className={`group relative rounded-xl border border-gray-800 bg-gray-900/50 p-6 min-h-[128px] shadow-sm transition-transform hover:-translate-y-0.5 hover:shadow-md ${isRemoving ? 'opacity-0 scale-95' : ''}`}>
             {/* Delete button - top-right corner */}
             <button
               type="button"
               onClick={handleRemove}
+              onPointerDown={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
               className="absolute right-2 top-2 z-10 rounded-md p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-red-900/20 hover:text-red-400 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900 group-hover:opacity-100"
               aria-label={`Remove ${title || 'widget'}`}
             >
@@ -176,6 +188,8 @@ function WidgetRenderer({ widget }: { widget: Widget }) {
                   <button
                     type="button"
                     onClick={() => setIsEditModalOpen(true)}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
                     className="rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-gray-800 hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-gray-900 group-hover/title:opacity-100"
                     aria-label={`Edit ${title || 'widget'}`}
                   >

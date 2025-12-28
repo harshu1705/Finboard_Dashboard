@@ -1,12 +1,12 @@
-import type {
-  StockQuote,
-  AlphaVantageQuoteResponse,
-  AlphaVantageErrorResponse,
-  AlphaVantageError,
-  NetworkError,
-  RateLimitError,
-} from '@/lib/types/api'
 import { cacheManager } from '@/lib/cache/cacheManager'
+import {
+    AlphaVantageError,
+    AlphaVantageErrorResponse,
+    AlphaVantageQuoteResponse,
+    NetworkError,
+    RateLimitError,
+    StockQuote,
+} from '@/lib/types/api'
 
 /**
  * Alpha Vantage API Client

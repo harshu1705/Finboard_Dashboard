@@ -67,11 +67,20 @@ NEXT_PUBLIC_API_KEY_EXAMPLE=your_key_here
 
 ## Tests & Developer Notes
 
-- Tests are included using Vitest + Testing Library. To run tests, install dev dependencies (see `package.json`) and run:
+- Tests are included using Vitest + Testing Library. To run tests locally, install dev dependencies (see `package.json`) and run:
 
 ```bash
+npm install
 npm run test
 ```
+
+- Recent key improvements (assignment checklist):
+  - **Table UI polish**: Table widget now spans full dashboard width, has a sticky header, enforced column ordering, computed minimum table width to avoid overlap, truncation rules, and horizontal scrolling on small viewports. ✅
+  - **Drag & Drop polish**: Control buttons (Edit, Remove) now stop event propagation to avoid accidental drags. ✅
+  - **Import (Paste / Preview)**: New import modal to paste or upload JSON, preview parsed widgets, and confirm import. ✅
+  - **Save as Template**: You can save the current dashboard layout as a reusable template and load or delete your saved templates from the Templates modal. ✅
+  - **Accessibility & Responsive tweaks**: Focus management for modals, ARIA attributes for table and dialogs, keyboard sorting on table headers. ✅
+  - **Automated tests**: Unit tests added for the Table widget and templates. ⚙️
 
 - Widget reordering can be toggled from the header ("Reorder: On/Off"). You will be asked to confirm when enabling/disabling reordering; the setting is persisted to localStorage.
 

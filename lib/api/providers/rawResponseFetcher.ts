@@ -5,7 +5,7 @@
  * This allows us to explore the full API response structure.
  */
 
-import type { InvalidApiKeyError, NetworkError, ProviderError, RateLimitError } from './types'
+import { InvalidApiKeyError, NetworkError, ProviderError, RateLimitError } from './types'
 
 const API_KEYS = {
   'alpha-vantage': process.env.NEXT_PUBLIC_ALPHA_VANTAGE_API_KEY,
@@ -23,9 +23,11 @@ const BASE_URLS = {
  * Fetches raw response from a specific provider
  */
 export async function fetchStockDataRaw(
-  providerName: 'alpha-vantage' | 'finnhub',
+  providerName: import('./fallback').ProviderName,
   symbol: string
 ): Promise<unknown> {
+  // If demo fallback is requested, return an empty object - demo provider is generated elsewhere
+  if (providerName === 'demo') return {}
   const API_KEY = API_KEYS[providerName]
   const BASE_URL = BASE_URLS[providerName]
   const normalizedSymbol = symbol.trim().toUpperCase()

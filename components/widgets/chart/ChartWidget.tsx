@@ -63,15 +63,15 @@ export default function ChartWidget({ widget, onRemove }: { widget: Widget, onRe
         </div>
 
         <div className="flex items-center gap-2">
-          <button onClick={() => fetchData()} title="Refresh" className="rounded-md p-1 hover:bg-gray-800">
+          <button onClick={() => fetchData()} title="Refresh" onPointerDown={(e) => e.stopPropagation()} className="rounded-md p-1 hover:bg-gray-800">
             <RefreshCw className="h-4 w-4" />
           </button>
 
-          <button type="button" onClick={() => setIsEditModalOpen(true)} title="Edit" className="rounded-md p-1 text-muted-foreground hover:bg-gray-800">
+          <button type="button" onClick={() => setIsEditModalOpen(true)} title="Edit" onPointerDown={(e) => e.stopPropagation()} className="rounded-md p-1 text-muted-foreground hover:bg-gray-800">
             <Pencil className="h-4 w-4" />
           </button>
 
-          <button onClick={onRemove} title="Remove widget" className="rounded-md p-1 hover:bg-red-900/20">
+          <button onClick={onRemove} title="Remove widget" onPointerDown={(e) => e.stopPropagation()} className="rounded-md p-1 hover:bg-red-900/20">
             <X className="h-4 w-4" />
           </button>
         </div>

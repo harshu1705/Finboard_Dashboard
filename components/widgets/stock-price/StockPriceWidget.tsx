@@ -628,6 +628,8 @@ function StockPriceWidget({
                 <button
                   type="button"
                   onClick={() => setIsEditModalOpen(true)}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
                   className="rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-gray-800 hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-gray-900 group-hover/title:opacity-100"
                   aria-label={`Edit ${title || symbol} widget`}
                 >
@@ -666,21 +668,23 @@ function StockPriceWidget({
         <button
           type="button"
           onClick={onRemove}
+          onPointerDown={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
           className="absolute right-2 top-2 z-10 rounded-md p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-red-900/20 hover:text-red-400 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900 group-hover:opacity-100"
           aria-label={`Remove ${title || symbol} widget`}
         >
           <X className="h-4 w-4" aria-hidden="true" />
         </button>
       )}
+      {/* Content: title, status, primary metric, and selected fields */}
       <div className="mb-4 flex items-center justify-between">
         <div className="flex-1">
           <div className="flex items-center gap-2 group/title">
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-medium text-muted-foreground">
-                {title || data.symbol}
+                {String(title ?? data?.symbol ?? '')}
               </h3>
 
-              {/* Live indicator */}
               {isRealtimeEnabled && realtimeConnected && (
                 <div className="ml-1 inline-flex items-center gap-2 rounded-full bg-green-900/30 px-2 py-0.5 text-xs text-green-300">
                   <span className="h-2 w-2 rounded-full bg-green-400 block" />
@@ -700,7 +704,7 @@ function StockPriceWidget({
                   type="button"
                   onClick={() => setIsEditModalOpen(true)}
                   className="rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-gray-800 hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-gray-900 group-hover/title:opacity-100"
-                  aria-label={`Edit ${title || data.symbol} widget`}
+                  aria-label={`Edit ${String(title ?? data?.symbol ?? symbol ?? '')} widget`}
                 >
                   <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
                 </button>
@@ -709,11 +713,10 @@ function StockPriceWidget({
           </div>
           {widget?.description && (
             <p className="mt-1 text-xs text-muted-foreground">
-              {widget.description}
+              {String(widget.description)}
             </p>
           )}
 
-          {/* Prominent primary metric (price) to match card spec */}
           {normalizedResponse.price !== undefined && (
             <div className="mt-3">
               <div className="text-xs text-muted-foreground mb-1">Price</div>
@@ -721,9 +724,8 @@ function StockPriceWidget({
             </div>
           )}
 
-          {/* Render selected fields */}
           <div className="mt-2">
-            {renderSelectedFields}
+            {renderSelectedFields as unknown as React.ReactNode}
           </div>
         </div>
         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent/10">
@@ -731,7 +733,6 @@ function StockPriceWidget({
         </div>
       </div>
 
-      {/* Field Selection Panel */}
       {rawResponse && (
         <FieldSelectionPanel
           rawResponse={rawResponse}

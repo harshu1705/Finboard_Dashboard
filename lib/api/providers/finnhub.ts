@@ -5,7 +5,7 @@
  * Follows the provider abstraction pattern.
  */
 
-import type { InvalidApiKeyError, NetworkError, NormalizedStockData, ProviderError, RateLimitError } from './types'
+import { InvalidApiKeyError, NetworkError, NormalizedStockData, ProviderError, RateLimitError } from './types'
 
 // Get API configuration from environment variables
 const API_KEY = process.env.NEXT_PUBLIC_FINNHUB_API_KEY

@@ -32,14 +32,17 @@ export default function SortableWidget({ id, children, useHandle = true, handleP
           <GripVertical className="h-4 w-4" />
         </button>
       ) : (
-        // When not using a handle, render an invisible layer that can accept drag props via handleProps
-        <div
-          {...(handleProps as any)}
-          tabIndex={0}
-          role="button"
-          aria-pressed={isDragging}
-          className={`absolute inset-0 z-10 ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
-        />
+        // When not using a handle, only render the invisible drag overlay if handleProps are provided
+        // This avoids an always-present overlay that blocks clicks when drag is disabled or not being used
+        Object.keys(handleProps || {}).length > 0 ? (
+          <div
+            {...(handleProps as any)}
+            tabIndex={0}
+            role="button"
+            aria-pressed={isDragging}
+            className={`absolute inset-0 z-10 ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+          />
+        ) : null
       )}
 
       {/* Provide a group wrapper so the handle appears on hover */}

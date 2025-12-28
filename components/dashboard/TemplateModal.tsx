@@ -2,8 +2,8 @@
 
 import { useDashboardStore } from '@/lib/stores/dashboardStore'
 import { dashboardTemplates, type DashboardTemplate } from '@/lib/templates/dashboardTemplates'
-import { X, Check } from 'lucide-react'
-import { useState, useEffect, useRef } from 'react'
+import { Check, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 
 interface TemplateModalProps {
   isOpen: boolean
@@ -24,9 +24,22 @@ interface TemplateModalProps {
 export default function TemplateModal({ isOpen, onClose }: TemplateModalProps) {
   const importWidgets = useDashboardStore((state) => state.importWidgets)
   const widgets = useDashboardStore((state) => state.widgets)
+  const templates = useDashboardStore((state) => state.templates)
+  const saveTemplate = useDashboardStore((state) => state.saveTemplate)
+  const removeTemplate = useDashboardStore((state) => state.removeTemplate)
   
   const [selectedTemplate, setSelectedTemplate] = useState<DashboardTemplate | null>(null)
   const [showConfirmation, setShowConfirmation] = useState(false)
+  const [saveFormOpen, setSaveFormOpen] = useState(false)
+  const [saveName, setSaveName] = useState('')
+  const [saveDescription, setSaveDescription] = useState('')
+  const saveNameRef = useRef<HTMLInputElement | null>(null)
+
+  useEffect(() => {
+    if (saveFormOpen && saveNameRef.current) {
+      saveNameRef.current.focus()
+    }
+  }, [saveFormOpen])
   
   const modalRef = useRef<HTMLDivElement>(null)
 
@@ -35,6 +48,9 @@ export default function TemplateModal({ isOpen, onClose }: TemplateModalProps) {
     if (isOpen) {
       setSelectedTemplate(null)
       setShowConfirmation(false)
+      setSaveFormOpen(false)
+      setSaveName('')
+      setSaveDescription('')
     }
   }, [isOpen])
 
@@ -220,9 +236,55 @@ export default function TemplateModal({ isOpen, onClose }: TemplateModalProps) {
           ) : (
             // Template selection view
             <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Choose a template to quickly set up your dashboard with pre-configured widgets.
-              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Choose a template to quickly set up your dashboard with pre-configured widgets.
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSaveFormOpen(!saveFormOpen)}
+                    className="rounded-lg border border-gray-800 bg-transparent px-3 py-1 text-sm text-foreground hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-accent"
+                  >
+                    Save current layout
+                  </button>
+                </div>
+              </div>
+
+              {/* Save form */}
+              {saveFormOpen && (
+                <div className="rounded-lg border border-gray-800 bg-gray-950/40 p-4">
+                  <label className="text-sm text-muted-foreground">Name</label>
+                  <input ref={(r) => { saveNameRef.current = r }} value={saveName} onChange={(e) => setSaveName(e.target.value)} className="mt-2 w-full rounded-md border border-gray-800 bg-transparent px-3 py-2 text-sm text-foreground" />
+                  <label className="text-sm text-muted-foreground mt-3">Description (optional)</label>
+                  <input value={saveDescription} onChange={(e) => setSaveDescription(e.target.value)} className="mt-2 w-full rounded-md border border-gray-800 bg-transparent px-3 py-2 text-sm text-foreground" />
+                  <div className="flex gap-3 mt-4">
+                    <button type="button" onClick={() => { setSaveName(''); setSaveDescription(''); setSaveFormOpen(false) }} className="rounded-lg border border-gray-800 bg-transparent px-4 py-2 text-sm">Cancel</button>
+                    <button type="button" onClick={() => { if (saveName.trim().length === 0) { alert('Please provide a name for the template') } else { saveTemplate(saveName.trim(), saveDescription.trim()); setSaveFormOpen(false); } }} className="rounded-lg bg-accent px-4 py-2 text-sm text-accent-foreground">Save</button>
+                  </div>
+                </div>
+              )}
+
+              {/* Saved templates (user) */}
+              {templates && templates.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-semibold text-foreground">Your Templates</h4>
+                  <div className="space-y-3 mt-2">
+                    {templates.map((t) => (
+                      <div key={t.id} className="flex items-start justify-between gap-3 rounded-lg border border-gray-800 bg-gray-950/50 p-3">
+                        <div className="flex-1 min-w-0 text-left">
+                          <div className="font-medium text-foreground">{t.name}</div>
+                          <div className="text-xs text-muted-foreground">{t.description}</div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button onClick={() => handleTemplateSelect(t)} className="rounded-lg border border-gray-800 px-3 py-1 text-sm">Load</button>
+                          <button onClick={() => { if (confirm('Delete saved template?')) removeTemplate(t.id) }} className="rounded-lg border border-red-800 px-3 py-1 text-sm text-red-400">Delete</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 gap-4">
                 {dashboardTemplates.map((template) => (

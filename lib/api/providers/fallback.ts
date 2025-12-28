@@ -9,7 +9,7 @@ import { cacheManager } from '@/lib/cache/cacheManager'
 import { fetchStockData as fetchAlphaVantage } from './alphaVantage'
 import { fetchStockData as fetchFinnhub } from './finnhub'
 import { fetchStockDataRaw } from './rawResponseFetcher'
-import type { NetworkError, NormalizedStockData, ProviderError, RateLimitError } from './types'
+import { NetworkError, NormalizedStockData, ProviderError, RateLimitError } from './types'
 
 /**
  * Provider configuration

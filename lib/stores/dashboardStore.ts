@@ -8,6 +8,15 @@ interface DashboardState {
   /** Array of all widgets in the dashboard */
   widgets: Widget[]
   
+  /** User-saved templates (persisted separately from built-in templates) */
+  templates: import('@/lib/templates/dashboardTemplates').DashboardTemplate[]
+  /** Save current dashboard layout as a template */
+  saveTemplate: (name: string, description?: string) => void
+  /** Load (apply) a template by ID, replacing current widgets */
+  loadTemplate: (templateId: string) => void
+  /** Remove a saved template by ID */
+  removeTemplate: (templateId: string) => void
+  
   /** Toggle to enable/disable drag-and-drop reordering */
   dragEnabled: boolean
   /** Set drag-and-drop enabled state */
@@ -218,6 +227,41 @@ function savePersistedState(widgets: Widget[], dragEnabled: boolean = true): voi
   }
 }
 
+// --------------------------
+// Template persistence helpers
+// --------------------------
+
+const TEMPLATES_KEY = 'groww-dashboard-templates-v1'
+
+function loadTemplatesFromStorage(): import('@/lib/templates/dashboardTemplates').DashboardTemplate[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = localStorage.getItem(TEMPLATES_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as import('@/lib/templates/dashboardTemplates').DashboardTemplate[]
+    return Array.isArray(parsed) ? parsed : []
+  } catch (e) {
+    if (process.env.NODE_ENV === 'development') console.warn('[Dashboard Store] Failed to load templates from localStorage', e)
+    try { localStorage.removeItem(TEMPLATES_KEY) } catch {}
+    return []
+  }
+}
+
+function saveTemplatesToStorage(templates: import('@/lib/templates/dashboardTemplates').DashboardTemplate[]) {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(TEMPLATES_KEY, JSON.stringify(templates))
+  } catch (e) {
+    if (process.env.NODE_ENV === 'development') console.warn('[Dashboard Store] Failed to save templates to localStorage', e)
+  }
+}
+
+function generateTemplateId() {
+  if (typeof crypto !== 'undefined' && (crypto as any).randomUUID) return (crypto as any).randomUUID()
+  return `template-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+}
+
+
 /**
  * Track if store has been hydrated from localStorage
  * This prevents multiple hydration attempts and ensures we only load once
@@ -244,6 +288,7 @@ let hasHydrated = false
 export const useDashboardStore = create<DashboardState>((set, get) => ({
   // Initial state - will be hydrated from localStorage on client-side mount
   widgets: [],
+  templates: [],
   dragEnabled: true,
 
   // Internal: Initialize store from persisted state
@@ -259,11 +304,17 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
 
     hasHydrated = true
     const persisted = loadPersistedState()
-    
+    const persistedTemplates = loadTemplatesFromStorage()
+
     // Only update state if we have persisted widgets
     // If localStorage is empty or invalid, keep the default empty state
     if (persisted && persisted.widgets && persisted.widgets.length > 0) {
-      set({ widgets: persisted.widgets, dragEnabled: persisted.dragEnabled ?? true })
+      set({ widgets: persisted.widgets, dragEnabled: persisted.dragEnabled ?? true, templates: persistedTemplates })
+    } else {
+      // Still set templates if any were persisted
+      if (persistedTemplates && persistedTemplates.length > 0) {
+        set({ templates: persistedTemplates })
+      }
     }
   },
 
@@ -373,6 +424,61 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     set((state) => {
       savePersistedState(validWidgets, state.dragEnabled)
       return { widgets: validWidgets }
+    })
+  },
+
+  // Save current dashboard layout as a template
+  saveTemplate: (name, description = '') => {
+    set((state) => {
+      const { widgets } = state
+      // Convert current widgets into CreateWidgetPayload shape (strip runtime-only fields)
+      const payloads: CreateWidgetPayload[] = widgets.map((w) => ({
+        type: w.type,
+        title: w.title,
+        description: (w as any).description,
+        config: w.config,
+      }))
+
+      const newTemplate: import('@/lib/templates/dashboardTemplates').DashboardTemplate = {
+        id: generateTemplateId(),
+        name,
+        description,
+        widgets: payloads,
+      }
+
+      const newTemplates = [...state.templates, newTemplate]
+      // Persist templates separately
+      saveTemplatesToStorage(newTemplates)
+
+      return { templates: newTemplates }
+    })
+  },
+
+  // Load (apply) a template by ID - replaces current widgets with template widgets
+  loadTemplate: (templateId) => {
+    set((state) => {
+      const tpl = state.templates.find((t) => t.id === templateId)
+      if (!tpl) return state
+
+      // Convert CreateWidgetPayload into Widgets (assign fresh ids and timestamps)
+      const newWidgets: Widget[] = tpl.widgets.map((p) => ({
+        ...p,
+        id: generateWidgetId(),
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      } as unknown as Widget))
+
+      savePersistedState(newWidgets, state.dragEnabled)
+      return { widgets: newWidgets }
+    })
+  },
+
+  // Remove a saved template by ID
+  removeTemplate: (templateId) => {
+    set((state) => {
+      const next = state.templates.filter((t) => t.id !== templateId)
+      saveTemplatesToStorage(next)
+      return { templates: next }
     })
   },
 }))

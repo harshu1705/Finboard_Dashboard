@@ -4,8 +4,9 @@ import ThemeToggle from '@/components/theme/ThemeToggle'
 import { useDashboardStore } from '@/lib/stores/dashboardStore'
 import { exportDashboard, importDashboard } from '@/lib/utils/dashboardExport'
 import { Download, GripVertical, LayoutTemplate, Plus, Upload } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import AddWidgetModal from './AddWidgetModal'
+import ImportModal from './ImportModal'
 import TemplateModal from './TemplateModal'
 
 function ToggleDragButton() {
@@ -48,9 +49,28 @@ function ToggleDragButton() {
 export default function Header() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false)
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const widgets = useDashboardStore((state) => state.widgets)
   const importWidgets = useDashboardStore((state) => state.importWidgets)
+
+  // Listen for open-modal events coming from other UI (e.g., the EmptyState buttons)
+  useEffect(() => {
+    const onOpenTemplate = () => setIsTemplateModalOpen(true)
+    const onOpenImport = () => setIsImportModalOpen(true)
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('open-template-modal', onOpenTemplate as EventListener)
+      window.addEventListener('open-import-modal', onOpenImport as EventListener)
+    }
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('open-template-modal', onOpenTemplate as EventListener)
+        window.removeEventListener('open-import-modal', onOpenImport as EventListener)
+      }
+    }
+  }, [])
 
   // Handle export
   const handleExport = () => {
@@ -62,9 +82,9 @@ export default function Header() {
     }
   }
 
-  // Handle import file selection
+  // Open import preview modal
   const handleImportClick = () => {
-    fileInputRef.current?.click()
+    setIsImportModalOpen(true)
   }
 
   // Handle file import
@@ -189,6 +209,9 @@ export default function Header() {
       
       {/* Template Modal */}
       <TemplateModal isOpen={isTemplateModalOpen} onClose={() => setIsTemplateModalOpen(false)} />
+
+      {/* Import (paste/preview) Modal */}
+      <ImportModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} />
     </>
   )
 }

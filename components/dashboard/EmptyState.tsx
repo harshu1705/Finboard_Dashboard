@@ -56,15 +56,31 @@ export default function EmptyState() {
             </ol>
           </div>
 
-          {/* CTA Button */}
-          <button
-            type="button"
-            className="inline-flex items-center gap-2 rounded-lg bg-accent px-6 py-3 text-sm font-medium text-accent-foreground transition-colors hover:bg-accent/90 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-background active:bg-accent/80"
-            aria-label="Add your first widget"
-          >
-            <Plus className="h-4 w-4" aria-hidden="true" />
-            Add Your First Widget
-          </button>
+          {/* Starter area: replace single CTA with template/import options */}
+          <div className="mt-4">
+            <p className="mb-3 text-sm text-muted-foreground">Start your dashboard from here — pick a template or import a configuration to get a jumpstart.</p>
+            <div className="flex items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => typeof window !== 'undefined' && window.dispatchEvent(new CustomEvent('open-template-modal'))}
+                className="rounded-lg border border-gray-800 bg-transparent px-4 py-2 text-sm font-medium text-foreground hover:border-accent hover:bg-gray-900/40 focus:outline-none focus:ring-2 focus:ring-accent"
+                aria-label="Open templates"
+              >
+                Choose a Template
+              </button>
+
+              <button
+                type="button"
+                onClick={() => typeof window !== 'undefined' && window.dispatchEvent(new CustomEvent('open-import-modal'))}
+                className="rounded-lg border border-transparent bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent/90 focus:outline-none focus:ring-2 focus:ring-accent"
+                aria-label="Import dashboard"
+              >
+                Import Dashboard
+              </button>
+            </div>
+
+            <p className="mt-3 text-xs text-muted-foreground">Tip: Try the <strong className="text-foreground">Market Overview</strong> template to load a paginated table and sample price cards.</p>
+          </div>
         </div>
       </div>
     </div>
