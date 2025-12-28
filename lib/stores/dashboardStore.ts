@@ -8,6 +8,11 @@ interface DashboardState {
   /** Array of all widgets in the dashboard */
   widgets: Widget[]
   
+  /** Toggle to enable/disable drag-and-drop reordering */
+  dragEnabled: boolean
+  /** Set drag-and-drop enabled state */
+  setDragEnabled: (enabled: boolean) => void
+  
   /** Add a new widget to the dashboard */
   addWidget: (widget: CreateWidgetPayload) => void
   
@@ -57,6 +62,7 @@ const STORAGE_VERSION = 1 // Increment this when schema changes
 interface PersistedState {
   version: number
   widgets: Widget[]
+  dragEnabled?: boolean
 }
 
 /**
@@ -84,7 +90,7 @@ function isValidWidget(widget: unknown): widget is Widget {
  * Returns null if no valid state is found or if an error occurs
  * Handles corrupted data gracefully by returning null (which will use default empty state)
  */
-function loadPersistedState(): Widget[] | null {
+function loadPersistedState(): PersistedState | null {
   // Only run on client-side (localStorage is not available during SSR)
   if (typeof window === 'undefined') {
     return null
@@ -125,12 +131,12 @@ function loadPersistedState(): Widget[] | null {
     }
 
     // Filter out invalid widgets (defensive parsing)
-    const validWidgets = state.widgets.filter(isValidWidget)
+    const validWidgets = (state.widgets as any[]).filter(isValidWidget)
 
     // If some widgets were invalid, log a warning
-    if (validWidgets.length !== state.widgets.length) {
+    if (validWidgets.length !== (state.widgets as any[]).length) {
       console.warn(
-        `[Dashboard Store] Filtered out ${state.widgets.length - validWidgets.length} invalid widgets from stored state`
+        `[Dashboard Store] Filtered out ${(state.widgets as any[]).length - validWidgets.length} invalid widgets from stored state`
       )
     }
 
@@ -159,6 +165,7 @@ function loadPersistedState(): Widget[] | null {
       const migratedState: PersistedState = {
         version: STORAGE_VERSION,
         widgets: migratedWidgets,
+        dragEnabled: true,
       }
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(migratedState))
@@ -167,7 +174,10 @@ function loadPersistedState(): Widget[] | null {
       }
     }
 
-    return migratedWidgets
+    // Preserve stored dragEnabled flag if present
+    const persistedDrag = typeof (state.dragEnabled) === 'boolean' ? (state.dragEnabled as boolean) : true
+
+    return { version: STORAGE_VERSION, widgets: migratedWidgets, dragEnabled: persistedDrag }
   } catch (error) {
     // Handle JSON parse errors, corrupted data, or any other exceptions
     console.error('[Dashboard Store] Error loading persisted state:', error)
@@ -185,7 +195,7 @@ function loadPersistedState(): Widget[] | null {
  * Saves current state to localStorage
  * Silently fails if localStorage is unavailable or disabled
  */
-function savePersistedState(widgets: Widget[]): void {
+function savePersistedState(widgets: Widget[], dragEnabled: boolean = true): void {
   // Only run on client-side
   if (typeof window === 'undefined') {
     return
@@ -195,6 +205,7 @@ function savePersistedState(widgets: Widget[]): void {
     const state: PersistedState = {
       version: STORAGE_VERSION,
       widgets,
+      dragEnabled,
     }
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
@@ -233,6 +244,7 @@ let hasHydrated = false
 export const useDashboardStore = create<DashboardState>((set, get) => ({
   // Initial state - will be hydrated from localStorage on client-side mount
   widgets: [],
+  dragEnabled: true,
 
   // Internal: Initialize store from persisted state
   // This is called once when the store is first used on the client-side
@@ -246,12 +258,12 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     }
 
     hasHydrated = true
-    const persistedWidgets = loadPersistedState()
+    const persisted = loadPersistedState()
     
     // Only update state if we have persisted widgets
     // If localStorage is empty or invalid, keep the default empty state
-    if (persistedWidgets && persistedWidgets.length > 0) {
-      set({ widgets: persistedWidgets })
+    if (persisted && persisted.widgets && persisted.widgets.length > 0) {
+      set({ widgets: persisted.widgets, dragEnabled: persisted.dragEnabled ?? true })
     }
   },
 
@@ -266,8 +278,8 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     
     set((state) => {
       const updatedWidgets = [...state.widgets, newWidget]
-      // Persist immediately after state update
-      savePersistedState(updatedWidgets)
+      // Persist immediately after state update (include dragEnabled)
+      savePersistedState(updatedWidgets, state.dragEnabled)
       return { widgets: updatedWidgets }
     })
   },
@@ -277,7 +289,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     set((state) => {
       const updatedWidgets = state.widgets.filter((widget) => widget.id !== widgetId)
       // Persist immediately after state update
-      savePersistedState(updatedWidgets)
+      savePersistedState(updatedWidgets, state.dragEnabled)
       return { widgets: updatedWidgets }
     })
   },
@@ -291,7 +303,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
           : widget
       )
       // Persist immediately after state update
-      savePersistedState(updatedWidgets)
+      savePersistedState(updatedWidgets, state.dragEnabled)
       return { widgets: updatedWidgets }
     })
   },
@@ -303,9 +315,18 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
 
   // Clear all widgets
   clearWidgets: () => {
-    set({ widgets: [] })
-    // Persist immediately after clearing
-    savePersistedState([])
+    set((state) => {
+      savePersistedState([], state.dragEnabled)
+      return { widgets: [] }
+    })
+  },
+
+  // Set drag enabled/disabled
+  setDragEnabled: (enabled: boolean) => {
+    set((state) => {
+      savePersistedState(state.widgets, enabled)
+      return { dragEnabled: enabled }
+    })
   },
 
   // Reorder widgets by moving a widget from one index to another
@@ -328,7 +349,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       updatedWidgets.splice(toIndex, 0, movedWidget)
 
       // Persist immediately after reordering
-      savePersistedState(updatedWidgets)
+      savePersistedState(updatedWidgets, state.dragEnabled)
 
       // Also expose a human-friendly order array for external integrations (optional)
       try {
@@ -349,9 +370,10 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     // Filter and validate widgets using the existing validation function
     const validWidgets = widgetsToImport.filter(isValidWidget)
 
-    set({ widgets: validWidgets })
-    // Persist immediately after importing
-    savePersistedState(validWidgets)
+    set((state) => {
+      savePersistedState(validWidgets, state.dragEnabled)
+      return { widgets: validWidgets }
+    })
   },
 }))
 

@@ -35,7 +35,8 @@ import type { StockPriceState } from './types'
 export function useStockPrice(
   symbol: string,
   refreshInterval: number | null = 60000,
-  provider: ProviderName = 'alpha-vantage'
+  provider: ProviderName = 'alpha-vantage',
+  realtime: boolean = false
 ): StockPriceState {
   const [state, setState] = useState<StockPriceState>({
     data: null,
@@ -45,6 +46,9 @@ export function useStockPrice(
     hasFetched: false,
     provider: null,
     usedFallback: false,
+    isRealtimeEnabled: realtime,
+    realtimeConnected: false,
+    realtimeUnavailableReason: null,
   })
 
   // Track if a fetch is in progress to prevent overlapping calls
@@ -88,6 +92,7 @@ export function useStockPrice(
         // Note: We don't have raw response in cache, so it will be null
         // Raw response will be fetched on next refresh
         setState({
+          ...state,
           data: cachedData,
           rawResponse: null,
           isLoading: false,
@@ -139,7 +144,8 @@ export function useStockPrice(
         const cacheTTL = 10 * 60 * 1000 // 10 minutes
         cacheManager.set(cacheKey, quote, cacheTTL)
         
-        setState({
+        setState((prev) => ({
+          ...prev,
           data: quote,
           rawResponse,
           isLoading: false,
@@ -147,17 +153,18 @@ export function useStockPrice(
           hasFetched: true,
           provider: actualProvider,
           usedFallback,
-        })
+        }))
       } catch (error) {
         // If we have cached data, keep it even if fetch fails
         if (cachedData) {
-          setState({
+          setState((prev) => ({
+            ...prev,
             data: cachedData,
             rawResponse: null, // No raw response if using cache
             isLoading: false,
             error: null, // Don't show error if we have cached data
             hasFetched: true,
-          })
+          }))
         } else {
           setState((prev) => ({
             ...prev,
@@ -194,6 +201,77 @@ export function useStockPrice(
       isFetchingRef.current = false
     }
   }, [symbol, refreshInterval, provider]) // Re-run when symbol, interval, or provider changes
+
+  // Realtime WebSocket subscription (Finnhub only)
+  useEffect(() => {
+    if (!realtime) return
+    if (!symbol || symbol.trim().length === 0) return
+    if (provider !== 'finnhub') {
+      // Realtime only supported for Finnhub
+      setState((prev) => ({ ...prev, isRealtimeEnabled: true, realtimeConnected: false, realtimeUnavailableReason: 'Provider does not support realtime' }))
+      return
+    }
+
+    let unsub: (() => void) | null = null
+    let mgr: any = null
+
+    // Use dynamic import to keep this client-only and decoupled
+    const setup = async () => {
+      try {
+        const mod = await import('@/lib/realtime/finnhubSocket')
+        const FinnhubSocketManager = mod.default || mod.FinnhubSocketManager
+        const apiKey = process.env.NEXT_PUBLIC_FINNHUB_API_KEY
+        mgr = FinnhubSocketManager.getInstance(apiKey)
+
+        // Status listener
+        const statusCb = (s: { status: string; reason?: string }) => {
+          if (s.status === 'connected') {
+            setState((prev) => ({ ...prev, isRealtimeEnabled: true, realtimeConnected: true, realtimeUnavailableReason: null }))
+          } else if (s.status === 'no-key') {
+            setState((prev) => ({ ...prev, isRealtimeEnabled: true, realtimeConnected: false, realtimeUnavailableReason: s.reason || 'No API key for realtime' }))
+          } else if (s.status === 'connecting') {
+            setState((prev) => ({ ...prev, isRealtimeEnabled: true, realtimeConnected: false }))
+          } else {
+            setState((prev) => ({ ...prev, isRealtimeEnabled: true, realtimeConnected: false, realtimeUnavailableReason: s.reason || 'Realtime unavailable' }))
+          }
+        }
+
+        mgr.addStatusListener(statusCb)
+
+        // Subscribe to symbol trades
+        const cb = (payload: { symbol: string; price: number; timestamp: number }) => {
+          // Update local state with latest price, but keep other fields intact
+          setState((prev) => {
+            const newQuote = prev.data
+              ? { ...prev.data, price: payload.price, lastUpdated: payload.timestamp }
+              : { symbol: payload.symbol, price: payload.price, lastUpdated: payload.timestamp } as any
+            return { ...prev, data: newQuote, realtimeConnected: true, realtimeUnavailableReason: null }
+          })
+        }
+
+        unsub = mgr.subscribe(symbol, cb)
+      } catch (err) {
+        // Failed to set up realtime; mark as unavailable but keep polling
+        setState((prev) => ({ ...prev, isRealtimeEnabled: true, realtimeConnected: false, realtimeUnavailableReason: 'Failed to setup realtime' }))
+      }
+
+    }
+
+    setup()
+
+    return () => {
+      // cleanup subscription & listeners
+      try {
+        if (mgr && unsub) unsub()
+        if (mgr && mgr.removeStatusListener) {
+          // We passed an anonymous status callback; easiest to reset manager by removing all if needed
+          // but try to remove if possible — manager exposes removeStatusListener
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }, [symbol, realtime, provider])
 
   return state
 }

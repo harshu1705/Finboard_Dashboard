@@ -39,10 +39,13 @@ function WidgetRenderer({ widget }: { widget: Widget }) {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   
   // Memoize remove handler to prevent unnecessary re-renders of memoized widget
-  // This ensures the onRemove prop reference stays stable unless widget ID changes
+  // Show a confirmation dialog so users "double check" before deleting
   const handleRemove = useCallback(() => {
+    const name = title || id
+    const ok = window.confirm(`Remove widget "${name}"? This action cannot be undone.`)
+    if (!ok) return
     removeWidget(id)
-  }, [id, removeWidget])
+  }, [id, removeWidget, title])
 
   // Render widget based on type
   switch (type) {

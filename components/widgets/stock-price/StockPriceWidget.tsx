@@ -66,7 +66,8 @@ function StockPriceWidget({
     }
   }, [widget?.config])
   
-  const { data, isLoading, error, rawResponse, provider: actualProvider, usedFallback } = useStockPrice(symbol, refreshInterval, provider)
+  const realtimeEnabled = Boolean(widget?.config?.realtime === true)
+  const { data, isLoading, error, rawResponse, provider: actualProvider, usedFallback, isRealtimeEnabled, realtimeConnected, realtimeUnavailableReason } = useStockPrice(symbol, refreshInterval, provider, realtimeEnabled)
   
   // Get selected fields from config with safe defaults
   // Always returns a non-empty array with at least ['price']
@@ -674,19 +675,37 @@ function StockPriceWidget({
       <div className="mb-4 flex items-center justify-between">
         <div className="flex-1">
           <div className="flex items-center gap-2 group/title">
-            <h3 className="text-sm font-medium text-muted-foreground">
-              {title || data.symbol}
-            </h3>
-            {widget && (
-              <button
-                type="button"
-                onClick={() => setIsEditModalOpen(true)}
-                className="rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-gray-800 hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-gray-900 group-hover/title:opacity-100"
-                aria-label={`Edit ${title || data.symbol} widget`}
-              >
-                <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-medium text-muted-foreground">
+                {title || data.symbol}
+              </h3>
+
+              {/* Live indicator */}
+              {isRealtimeEnabled && realtimeConnected && (
+                <div className="ml-1 inline-flex items-center gap-2 rounded-full bg-green-900/30 px-2 py-0.5 text-xs text-green-300">
+                  <span className="h-2 w-2 rounded-full bg-green-400 block" />
+                  <span className="font-semibold">LIVE</span>
+                </div>
+              )}
+
+              {isRealtimeEnabled && !realtimeConnected && (
+                <div title={realtimeUnavailableReason || 'Realtime unavailable'} className="ml-1 inline-flex items-center gap-2 rounded-full bg-yellow-900/20 px-2 py-0.5 text-xs text-yellow-300">
+                  <span className="h-2 w-2 rounded-full bg-yellow-300 block" />
+                  <span className="font-medium">Realtime unavailable</span>
+                </div>
+              )}
+
+              {widget && (
+                <button
+                  type="button"
+                  onClick={() => setIsEditModalOpen(true)}
+                  className="rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-gray-800 hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-gray-900 group-hover/title:opacity-100"
+                  aria-label={`Edit ${title || data.symbol} widget`}
+                >
+                  <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
+              )}
+            </div>
           </div>
           {widget?.description && (
             <p className="mt-1 text-xs text-muted-foreground">
@@ -732,7 +751,7 @@ function StockPriceWidget({
         </div>
         {/* Provider badge - shows data source and fallback status */}
         {actualProvider && (
-          <div className="flex flex-col items-end gap-1">
+          <div className="flex flex-col items-end gap-1 text-right">
             <span
               className={`inline-flex items-center whitespace-nowrap rounded px-2 py-1 text-xs font-semibold ${
                 usedFallback
@@ -741,6 +760,9 @@ function StockPriceWidget({
               }`}
             >
               {getProviderLabel(actualProvider, usedFallback, provider)}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {isRealtimeEnabled && realtimeConnected ? 'Live via WebSocket' : `REST (${getProviderLabel(actualProvider, false, provider)})`}
             </span>
           </div>
         )}

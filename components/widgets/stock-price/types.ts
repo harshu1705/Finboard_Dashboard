@@ -51,5 +51,14 @@ export interface StockPriceState {
   
   /** Whether fallback occurred (data came from alternate provider) */
   usedFallback: boolean
+
+  /** Whether realtime mode is enabled for this hook (requested) */
+  isRealtimeEnabled?: boolean
+
+  /** Whether a realtime WebSocket connection is currently active */
+  realtimeConnected?: boolean
+
+  /** Optional message when realtime is unavailable */
+  realtimeUnavailableReason?: string | null
 }
 

@@ -65,3 +65,14 @@ Create `.env.local` for local development:
 NEXT_PUBLIC_API_KEY_EXAMPLE=your_key_here
 ```
 
+## Tests & Developer Notes
+
+- Tests are included using Vitest + Testing Library. To run tests, install dev dependencies (see `package.json`) and run:
+
+```bash
+npm run test
+```
+
+- Widget reordering can be toggled from the header ("Reorder: On/Off"). You will be asked to confirm when enabling/disabling reordering; the setting is persisted to localStorage.
+
+

@@ -257,13 +257,36 @@ export default function EditWidgetModal({ isOpen, widget, onClose }: EditWidgetM
               </p>
             </div>
 
+            {/* Price-card realtime toggle */}
+            {widget.type === 'price-card' && (
+              <div className="mt-3">
+                <div className="flex items-center gap-3">
+                  <input
+                    id="edit-widget-realtime"
+                    type="checkbox"
+                    checked={!!(widget.config && (widget.config as any).realtime)}
+                    onChange={() => {
+                      const current = !!(widget.config && (widget.config as any).realtime)
+                      updateWidget(widget.id, { config: { ...widget.config, realtime: !current } })
+                    }}
+                    className="h-4 w-4"
+                    disabled={isSubmitting || ((widget.config as any)?.provider !== 'finnhub')}
+                  />
+                  <label htmlFor="edit-widget-realtime" className="text-sm text-muted-foreground">Enable realtime updates (Finnhub WebSocket)</label>
+                </div>
+                {((widget.config as any)?.provider !== 'finnhub') && (
+                  <p className="mt-1 text-xs text-muted-foreground">Realtime is only available when the widget uses the Finnhub provider.</p>
+                )}
+              </div>
+            )}
+
             {/* Table-specific settings */}
             {widget.type === 'table' && (
               <div>
                 <label htmlFor="edit-widget-symbols" className="mb-2 block text-sm font-medium text-foreground">Symbols (comma-separated)</label>
                 <textarea
                   id="edit-widget-symbols"
-                  value={(widget.config?.symbols || []).join(', ')}
+                  value={(((widget.config as any)?.symbols) || []).join(', ')}
                   onChange={(e) => {
                     try {
                       const raw = e.target.value
@@ -293,7 +316,7 @@ export default function EditWidgetModal({ isOpen, widget, onClose }: EditWidgetM
                   id="edit-widget-refresh"
                   type="number"
                   min={0}
-                  value={widget.config?.refreshInterval ?? ''}
+                  value={(widget.config as any)?.refreshInterval ?? ''}
                   onChange={(e) => {
                     const v = Number(e.target.value)
                     if (!Number.isFinite(v) || v < 0) return
@@ -313,7 +336,7 @@ export default function EditWidgetModal({ isOpen, widget, onClose }: EditWidgetM
                 <input
                   id="edit-chart-symbol"
                   type="text"
-                  value={widget.config?.symbol ?? ''}
+                  value={(widget.config as any)?.symbol ?? ''}
                   onChange={(e) => updateWidget(widget.id, { config: { ...widget.config, symbol: e.target.value.toUpperCase() } })}
                   placeholder="AAPL"
                   className="w-full rounded-lg border border-gray-800 bg-gray-950 px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-gray-900 uppercase"
@@ -323,7 +346,7 @@ export default function EditWidgetModal({ isOpen, widget, onClose }: EditWidgetM
                 <div className="mt-3 flex items-center gap-3">
                   <div>
                     <label className="mb-2 block text-sm font-medium text-foreground">Chart Type</label>
-                    <select value={widget.config?.chartType ?? 'line'} onChange={(e) => updateWidget(widget.id, { config: { ...widget.config, chartType: e.target.value } })} className="rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-foreground">
+                    <select value={(widget.config as any)?.chartType ?? 'line'} onChange={(e) => updateWidget(widget.id, { config: { ...widget.config, chartType: e.target.value } })} className="rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-foreground">
                       <option value="line">Line</option>
                       <option value="candle">Candle</option>
                     </select>
@@ -331,7 +354,7 @@ export default function EditWidgetModal({ isOpen, widget, onClose }: EditWidgetM
 
                   <div>
                     <label className="mb-2 block text-sm font-medium text-foreground">Interval</label>
-                    <select value={widget.config?.interval ?? 'daily'} onChange={(e) => updateWidget(widget.id, { config: { ...widget.config, interval: e.target.value } })} className="rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-foreground">
+                    <select value={(widget.config as any)?.interval ?? 'daily'} onChange={(e) => updateWidget(widget.id, { config: { ...widget.config, interval: e.target.value } })} className="rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-foreground">
                       <option value="daily">Daily</option>
                       <option value="weekly">Weekly</option>
                       <option value="monthly">Monthly</option>
@@ -340,7 +363,7 @@ export default function EditWidgetModal({ isOpen, widget, onClose }: EditWidgetM
 
                   <div>
                     <label className="mb-2 block text-sm font-medium text-foreground">Refresh (ms)</label>
-                    <input type="number" value={widget.config?.refreshInterval ?? ''} onChange={(e) => { const v = Number(e.target.value); if (!Number.isFinite(v) || v < 0) return; updateWidget(widget.id, { config: { ...widget.config, refreshInterval: v } }) }} className="w-32 rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-foreground" />
+                    <input type="number" value={(widget.config as any)?.refreshInterval ?? ''} onChange={(e) => { const v = Number(e.target.value); if (!Number.isFinite(v) || v < 0) return; updateWidget(widget.id, { config: { ...widget.config, refreshInterval: v } }) }} className="w-32 rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-foreground" />
                   </div>
                 </div>
 

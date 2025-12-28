@@ -17,6 +17,7 @@ import WidgetRenderer from './WidgetRenderer'
 export default function WidgetGrid() {
   const widgets = useDashboardStore((state) => state.widgets)
   const reorderWidgets = useDashboardStore((state) => state.reorderWidgets)
+  const dragEnabled = useDashboardStore((state) => state.dragEnabled)
 
   const [activeId, setActiveId] = useState<string | null>(null)
   const [overId, setOverId] = useState<string | null>(null)
@@ -65,10 +66,14 @@ export default function WidgetGrid() {
     return null
   }
 
-  // If dnd-kit isn't available (or still loading), fall back to static grid
-  if (!dndModules) {
+  // If dnd-kit isn't available (or still loading) OR if reordering is disabled, fall back to static grid
+  if (!dndModules || !dragEnabled) {
     return (
       <div className="w-full">
+        {!dragEnabled && (
+          <div className="mb-3 text-xs text-muted-foreground">Widget reordering is disabled. Enable it via the header to reorder widgets.</div>
+        )}
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {widgets.map((widget) => (
             <div key={widget.id} className="min-w-0">

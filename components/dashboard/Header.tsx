@@ -1,12 +1,49 @@
 'use client'
 
-import { useRef, useState } from 'react'
-import { Plus, Download, Upload, LayoutTemplate } from 'lucide-react'
-import AddWidgetModal from './AddWidgetModal'
-import TemplateModal from './TemplateModal'
+import ThemeToggle from '@/components/theme/ThemeToggle'
 import { useDashboardStore } from '@/lib/stores/dashboardStore'
 import { exportDashboard, importDashboard } from '@/lib/utils/dashboardExport'
-import ThemeToggle from '@/components/theme/ThemeToggle'
+import { Download, GripVertical, LayoutTemplate, Plus, Upload } from 'lucide-react'
+import { useRef, useState } from 'react'
+import AddWidgetModal from './AddWidgetModal'
+import TemplateModal from './TemplateModal'
+
+function ToggleDragButton() {
+  const dragEnabled = useDashboardStore((s) => s.dragEnabled)
+  const setDragEnabled = useDashboardStore((s) => s.setDragEnabled)
+
+  const handleClick = () => {
+    const message = dragEnabled
+      ? 'Disable drag & drop? Widgets can no longer be reordered until re-enabled.'
+      : 'Enable drag & drop? You will be able to reorder widgets by dragging the handle.'
+
+    const ok = window.confirm(message)
+    if (!ok) return
+
+    setDragEnabled(!dragEnabled)
+    // Small confirmation toast (alert for simplicity)
+    try {
+      if (typeof window !== 'undefined') {
+        window.alert(`Drag & drop ${!dragEnabled ? 'enabled' : 'disabled'}.`)
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      className="hidden sm:flex items-center gap-2 rounded-lg border border-gray-800 bg-transparent px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-background"
+      aria-pressed={dragEnabled}
+      title={dragEnabled ? 'Disable reordering' : 'Enable reordering'}
+    >
+      <GripVertical className="h-4 w-4" aria-hidden="true" />
+      <span className="hidden md:inline">{dragEnabled ? 'Reorder: On' : 'Reorder: Off'}</span>
+    </button>
+  )
+}
 
 export default function Header() {
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -91,6 +128,9 @@ export default function Header() {
                 <LayoutTemplate className="h-4 w-4" aria-hidden="true" />
                 <span className="hidden md:inline">Templates</span>
               </button>
+
+              {/* Drag & Drop toggle (requires confirmation) */}
+              <ToggleDragButton />
 
               {/* Export Button */}
               <button

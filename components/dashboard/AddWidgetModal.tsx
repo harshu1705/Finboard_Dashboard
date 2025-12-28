@@ -49,6 +49,8 @@ export default function AddWidgetModal({ isOpen, onClose }: AddWidgetModalProps)
   const [apiResponse, setApiResponse] = useState<unknown>(null)
   const [apiError, setApiError] = useState<string | null>(null)
   const [selectedFields, setSelectedFields] = useState<string[]>([])
+  // Realtime opt-in (Finnhub WebSocket)
+  const [useRealtime, setUseRealtime] = useState<boolean>(false)
   
   // Refs for focus trap
   const modalRef = useRef<HTMLDivElement>(null)
@@ -69,6 +71,7 @@ export default function AddWidgetModal({ isOpen, onClose }: AddWidgetModalProps)
       setSelectedFields([])
       setIsTestingApi(false)
       setErrors({})
+      setUseRealtime(false)
       // Focus first input when modal opens
       setTimeout(() => {
         firstFocusableRef.current?.focus()
@@ -250,6 +253,8 @@ export default function AddWidgetModal({ isOpen, onClose }: AddWidgetModalProps)
           selectedFields: selectedFields.length > 0 ? selectedFields : [],
           // Keep fields for backward compatibility
           fields: selectedFields.length > 0 ? selectedFields : [],
+          // Realtime opt-in (only meaningful when provider === 'finnhub')
+          realtime: (apiProvider === 'finnhub') ? !!useRealtime : false,
         },
       }
     }
@@ -294,7 +299,7 @@ export default function AddWidgetModal({ isOpen, onClose }: AddWidgetModalProps)
 
     try {
       // Use the selected provider to test API
-      const selectedProvider = (apiProvider as ProviderName) || 'alpha-vantage'
+      const selectedProvider = (apiProvider as any) || 'alpha-vantage'
       
       // Fetch raw response from the selected provider
       const rawResponse = await fetchStockDataRaw(selectedProvider, symbol)
@@ -449,6 +454,15 @@ export default function AddWidgetModal({ isOpen, onClose }: AddWidgetModalProps)
               <p className="mt-1 text-xs text-muted-foreground">
                 If the selected provider fails, the system will automatically fallback to the alternate provider.
               </p>
+
+              {/* Realtime toggle (only meaningful when Finnhub provider selected) */}
+              <div className="mt-3 flex items-center gap-2">
+                <input id="use-realtime" type="checkbox" checked={useRealtime} onChange={(e) => setUseRealtime(e.target.checked)} disabled={isSubmitting || apiProvider !== 'finnhub'} className="h-4 w-4" />
+                <label htmlFor="use-realtime" className="text-sm text-muted-foreground">Enable realtime updates (Finnhub WebSocket)</label>
+              </div>
+              {apiProvider !== 'finnhub' && (
+                <p className="mt-1 text-xs text-muted-foreground">Realtime is only available with the Finnhub provider.</p>
+              )}
             </div>
 
             {/* Stock Symbol Input */}
