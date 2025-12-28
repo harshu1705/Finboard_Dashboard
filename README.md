@@ -60,7 +60,7 @@ npm run lint
 
 ---
 
-## 📋 How to Demo (Recruiter-friendly script)
+## 📋 How to Demo
 
 1. Clone & install
 
@@ -173,7 +173,7 @@ No secrets are kept in the repo; ensure keys are provided by your environment/CI
 
 ---
 
-## 📞 Notes for reviewers / recruiters
+## 📞 Notes for reviewers
 
 - For a smooth demo, run `npm install` then `npm run dev` and follow the demo steps above.
 - I can add a GitHub Actions workflow and/or a small Playwright E2E script to solidify CI coverage and give you a demo link.
