@@ -52,6 +52,8 @@ function StockPriceWidget({
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   // Toggle details view for error messages (collapsed by default to reduce UI noise)
   const [showErrorDetails, setShowErrorDetails] = useState(false)
+  // Toggle details for error summary (for error UI)
+  const [showDetails, setShowDetails] = useState(false)
   
   // Get provider from config with default fallback
   const provider = useMemo(() => {
@@ -529,8 +531,6 @@ function StockPriceWidget({
 
   // Error state with concise UI + expandable details to avoid overwhelming the dashboard
   if (error) {
-    // local state to toggle details
-    const [showDetails, setShowDetails] = useState(false)
     const summary = getErrorSummary(error)
     const details = getErrorDetails(error)
 
