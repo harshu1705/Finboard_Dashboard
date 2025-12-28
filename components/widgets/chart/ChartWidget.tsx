@@ -4,7 +4,7 @@ import EditWidgetModal from '@/components/dashboard/EditWidgetModal'
 import { InvalidApiKeyError, NetworkError, RateLimitError } from '@/lib/api/providers/types'
 import type { Widget } from '@/lib/types/widget'
 import { Pencil, RefreshCw, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import CandleChartView from './CandleChartView'
 import { fetchTimeSeries } from './chartUtils'
 import LineChartView from './LineChartView'
@@ -24,7 +24,7 @@ export default function ChartWidget({ widget, onRemove }: { widget: Widget, onRe
   const [lastUpdated, setLastUpdated] = useState<string | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!symbol) return
     setIsLoading(true)
     setError(null)
@@ -38,7 +38,7 @@ export default function ChartWidget({ widget, onRemove }: { widget: Widget, onRe
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [symbol, interval, cfg.provider])
 
   useEffect(() => {
     // initial fetch
@@ -49,7 +49,7 @@ export default function ChartWidget({ widget, onRemove }: { widget: Widget, onRe
       fetchData()
     }, effectiveRefresh)
     return () => clearInterval(id)
-  }, [symbol, interval, refreshInterval, cfg.provider])
+  }, [fetchData, refreshInterval])
 
   // derive minimal UI text values
   const title = widget.title || (symbol ? `${symbol} ${chartType === 'candle' ? 'Candles' : 'Price'}` : 'Chart')
@@ -63,7 +63,7 @@ export default function ChartWidget({ widget, onRemove }: { widget: Widget, onRe
         </div>
 
         <div className="flex items-center gap-2">
-          <button onClick={() => fetchData()} title="Refresh" onPointerDown={(e) => e.stopPropagation()} className="rounded-md p-1 hover:bg-gray-800">
+          <button onClick={fetchData} title="Refresh" onPointerDown={(e) => e.stopPropagation()} className="rounded-md p-1 hover:bg-gray-800">
             <RefreshCw className="h-4 w-4" />
           </button>
 

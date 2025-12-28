@@ -195,7 +195,7 @@ export default function TableWidget({ widget, onRemove }: TableWidgetProps) {
                 })}
 
                 {dynamicFields.filter((f) => !['symbol','price','previousClose','high','provider','lastUpdated'].includes(f)).map((f) => (
-                  <th key={f} className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-wide text-foreground border-b border-gray-700/40 border-r border-gray-800/10 last:border-r-0 cursor-pointer" onClick={() => setSort(f)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setSort(f) }} aria-sort={sortField === f ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}>
+                  <th key={f} className="px-4 py-3 text-left text-sm font-semibold uppercase tracking-wide text-foreground border-b border-gray-700/40 border-r border-gray-800/10 last:border-r-0 cursor-pointer" onClick={() => setSort(f)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setSort(f) }}>
                     <div className="flex items-center gap-2"><span className="text-sm">{formatFieldLabel(f)}</span> <span className={`text-[11px] flex items-center ${sortField === f ? 'text-accent' : 'text-muted-foreground'}`}>{sortField === f ? (sortDir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : (<ArrowUpDown className="h-3 w-3" />)}</span></div>
                   </th>
                 ))}

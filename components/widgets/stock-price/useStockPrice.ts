@@ -91,14 +91,14 @@ export function useStockPrice(
         // Use cached data immediately on initial load
         // Note: We don't have raw response in cache, so it will be null
         // Raw response will be fetched on next refresh
-        setState({
-          ...state,
+        setState((prev) => ({
+          ...prev,
           data: cachedData,
           rawResponse: null,
           isLoading: false,
           error: null,
           hasFetched: true,
-        })
+        }))
       } else if (isInitialLoad && !cachedData) {
         // Set loading state only on initial load if no cache
         setState((prev) => ({
