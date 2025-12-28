@@ -5,9 +5,12 @@ import { ThemeProvider } from '@/components/theme/ThemeProvider'
 export const metadata: Metadata = {
   title: 'Finance Dashboard',
   description: 'Production-ready finance dashboard built with Next.js',
-  // Optimize for production
-  viewport: 'width=device-width, initial-scale=1',
-  themeColor: '#000000', // Dark theme color for mobile browsers
+}
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  themeColor: '#000000',
 }
 
 export default function RootLayout({

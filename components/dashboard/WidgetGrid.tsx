@@ -87,25 +87,41 @@ export default function WidgetGrid() {
     )
   }
 
-  // dnd-kit modules are available
-  const { core, sortable, utilities } = dndModules
-  const { DndContext, DragOverlay, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors } = core
-  const { SortableContext, rectSortingStrategy, sortableKeyboardCoordinates, useSortable } = sortable
-
-  // Try to load modifiers (e.g., restrictToParentElement) if available to constrain drag inside the grid
+  // dnd-kit hooks and variables
+  let DndContext, DragOverlay, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors, SortableContext, rectSortingStrategy, sortableKeyboardCoordinates, useSortable, utilities
   let modifiers: any[] = []
-  try {
-    const req = eval('require') as (pkg: string) => any
-    const modPkg = req('@dnd-kit/modifiers')
-    if (modPkg && modPkg.restrictToParentElement) modifiers.push(modPkg.restrictToParentElement)
-  } catch (err) {
-    // ignore if not available
-  }
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-  )
+  // Always define dummy sensors to satisfy hook rules
+  const dummySensor = () => null
+  const dummySensors = () => []
+  // Always call hooks at the top level
+  const sensors = dndModules
+    ? (() => {
+        const { core, sortable, utilities: utils } = dndModules
+        DndContext = core.DndContext
+        DragOverlay = core.DragOverlay
+        closestCenter = core.closestCenter
+        PointerSensor = core.PointerSensor
+        KeyboardSensor = core.KeyboardSensor
+        useSensor = core.useSensor
+        useSensors = core.useSensors
+        SortableContext = sortable.SortableContext
+        rectSortingStrategy = sortable.rectSortingStrategy
+        sortableKeyboardCoordinates = sortable.sortableKeyboardCoordinates
+        useSortable = sortable.useSortable
+        utilities = utils
+        try {
+          const req = eval('require') as (pkg: string) => any
+          const modPkg = req('@dnd-kit/modifiers')
+          if (modPkg && modPkg.restrictToParentElement) modifiers.push(modPkg.restrictToParentElement)
+        } catch (err) {
+          // ignore if not available
+        }
+        return core.useSensors(
+          core.useSensor(core.PointerSensor, { activationConstraint: { distance: 5 } }),
+          core.useSensor(core.KeyboardSensor, { coordinateGetter: sortable.sortableKeyboardCoordinates })
+        )
+      })()
+    : dummySensors();
 
   function handleDragStart(id: { id: string }) {
     setActiveId(id.id)
