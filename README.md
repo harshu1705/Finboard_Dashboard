@@ -60,7 +60,7 @@ npm run lint
 
 ---
 
-## 📋 How to Demo
+## 📋 How to Demo (Recruiter-friendly script)
 
 1. Clone & install
 
@@ -157,35 +157,4 @@ No secrets are kept in the repo; ensure keys are provided by your environment/CI
 1. Push to GitHub
 2. Import on Vercel and set environment variables
 3. Deploy (automatic on push)
-
-### AWS (manual)
-1. Build: `npm run build`
-2. Use output in `./.vercel` or `.next` as appropriate with your hosting tooling
-
----
-
-## 🧭 Contributing
-
-1. Fork the repo
-2. Create a topic branch
-3. Open a PR with tests for new features or bug fixes
-4. CI will run type-check, build, and tests
-
----
-
-## 📞 Notes for reviewers
-
-- For a smooth demo, run `npm install` then `npm run dev` and follow the demo steps above.
-- I can add a GitHub Actions workflow and/or a small Playwright E2E script to solidify CI coverage and give you a demo link.
-
----
-
-## License
-
-MIT
-
----
-
-If you'd like, I can now add a GitHub Actions workflow that runs the type-check and tests on every PR, and optionally add a Playwright demo script or a short GIF to the README.
-
 
