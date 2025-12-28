@@ -88,7 +88,7 @@ export default function WidgetGrid() {
   }
 
   // dnd-kit hooks and variables
-  let DndContext, DragOverlay, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors, SortableContext, rectSortingStrategy, sortableKeyboardCoordinates, useSortable, utilities
+  let DndContext: any, DragOverlay: any, closestCenter: any, PointerSensor: any, KeyboardSensor: any, useSensor: any, useSensors: any, SortableContext: any, rectSortingStrategy: any, sortableKeyboardCoordinates: any, useSortable: any, utilities: any
   let modifiers: any[] = []
   // Always define dummy sensors to satisfy hook rules
   const dummySensor = () => null
