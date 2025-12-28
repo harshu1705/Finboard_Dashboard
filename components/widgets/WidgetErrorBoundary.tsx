@@ -58,7 +58,7 @@ export class WidgetErrorBoundary extends Component<Props, State> {
                 {this.props.widgetTitle || 'Widget Error'}
               </h3>
               <p className="text-xs text-red-300/80 leading-relaxed">
-                This widget encountered an error and couldn\'t load. Please try refreshing the page or removing and re-adding this widget.
+                This widget encountered an error and couldn&#39;t load. Please try refreshing the page or removing and re-adding this widget.
               </p>
               <div className="mt-3 flex items-center gap-2">
                 <button onClick={() => location.reload()} className="rounded-md bg-red-700/80 px-3 py-1 text-sm text-white hover:bg-red-600">Retry</button>

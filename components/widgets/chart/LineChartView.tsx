@@ -6,6 +6,7 @@ import type { ChartPoint } from './types'
 export default function LineChartView({ data }: { data: ChartPoint[] }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [width, setWidth] = useState(600)
+  const [hover, setHover] = useState<{ idx: number; x: number; y: number } | null>(null)
   const height = 160
 
   useEffect(() => {
@@ -41,8 +42,7 @@ export default function LineChartView({ data }: { data: ChartPoint[] }) {
 
   const path = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${x(i)} ${y(p.close ?? p.open ?? 0)}`).join(' ')
 
-  // tooltip state
-  const [hover, setHover] = useState<{ idx: number; x: number; y: number } | null>(null)
+  // ...existing code...
 
   return (
     <div ref={containerRef} className="w-full" style={{ height }}>
